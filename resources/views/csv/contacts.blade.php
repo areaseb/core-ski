@@ -1,0 +1,70 @@
+<table>
+    <thead>
+    <tr>
+        <th>POSIZIONE</th>
+        <th>NOME</th>
+        <th>COGNOME</th>
+        <th>CELLULARE</th>
+        <th>EMAIL</th>
+        <th>INDIRIZZO</th>
+        <th>CAP</th>
+        <th>COMUNE</th>
+        <th>PROVINCIA</th>
+        <th>NAZIONE</th>
+        <th>LINGUA</th>
+        <th>ISCRITTO/A</th>
+        <th>AZIENDA</th>
+        <th>TIPO</th>
+        <th>ORIGINE</th>
+        <th>CATEGORIA</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach($contacts as $contact)
+
+        <tr>
+            <td>{{$contact->pos}}</td>
+            <td>{{$contact->nome}}</td>
+            <td>{{$contact->cognome}}</td>
+            <td>{{$contact->cellulare}}</td>
+            <td>{{$contact->email}}</td>
+            <td>{{$contact->indirizzo}}</td>
+            <td>{{$contact->cap}}</td>
+            <td>{{$contact->citta}}</td>
+            <td>{{$contact->provincia}}</td>
+            <td>{{$contact->nazione}}</td>
+            <td>{{$contact->lingua}}</td>
+            <td>
+                @if($contact->subscribed)
+                    Sì
+                @else
+                    No
+                @endif
+            </td>
+            <td>
+                @if($contact->company_id)
+                    {{$contact->company->rag_soc}}
+                @endif
+            </td>
+            <td>
+                @foreach($contact->clients as $type)
+                    @if($loop->last)
+                        {{$type->nome}}
+                    @else
+                        {{$type->nome}} |
+                    @endif
+                @endforeach
+            </td>
+            <td>{{$contact->origin}}</td>
+            <td>
+                @if($contact->company_id)
+                    @if($contact->company->sector_id)
+                        {{$contact->company->sector->nome}}
+                    @endif
+                @endif
+            </td>
+        </tr>
+
+    @endforeach
+    </tbody>
+</table>
