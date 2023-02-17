@@ -1,6 +1,6 @@
 {
-    "name": "areaseb/core",
-    "description": "Core Functionality CRM",
+    "name": "areaseb/core-ski",
+    "description": "Core Functionality CRM for ski school",
     "license": "MIT",
     "minimum-stability": "stable",
     "prefer-stable": true,
@@ -11,8 +11,8 @@
             "homepage": "https://www.areaseb.it"
         }
     ],
-    "homepage": "https://github.com/areaseb/core",
-    "keywords": ["Laravel", "Core"],
+    "homepage": "https://github.com/areaseb/core-ski",
+    "keywords": ["Laravel", "Core-ski"],
     "require-dev": {
         "phpunit/phpunit": "~9.0",
         "orchestra/testbench": "~5|~6"

@@ -4,13 +4,13 @@
 Via Composer
 
 ``` bash
-$ composer require areaseb/core-ski
+$ composer require areaseb/core
 ```
 
 ## Usage
 
 ``` bash
-$ composer require Areaseb/Core-ski
+$ composer require Areaseb/Core
 $ php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
 $ php artisan vendor:publish --provider="Areaseb\Core\CoreServiceProvider" --tag="core.migrations"
 $ php artisan vendor:publish --provider="Areaseb\Core\CoreServiceProvider" --tag="core.trans"
