@@ -22,6 +22,7 @@
         <div class="form-group">
             <select class="custom-select" name="region">
                 <option>Regione</option>
+
                 @foreach(Areaseb\Core\Models\City::uniqueRegions() as $region)
                     @if(request('region') == $region)
                         <option selected>{{$region}}</option>
@@ -50,10 +51,16 @@
 
     <div class="col">
         <div class="form-group">
-            <select class="custom-select" name="status">
-                <option {{request('status') == null ? 'selected' : ''}}>Stato</option>
-                <option value="1" {{request('status') == 1 ? 'selected' : ''}}>Attivo</option>
-                <option value="0" {{request('status') == 0 ? 'selected' : ''}}>Non Attivo</option>
+        <select class="custom-select" name="status">
+                @if(!request()->input())
+                <option selected>Stato</option>
+                <option value="1" >Attivo</option>
+                <option value="0" >Non Attivo</option>
+                @else
+                    <option>Stato</option>
+                    <option value="1" {{request('status') == 1 ? 'selected' : ''}}>Attivo</option>
+                    <option value="0" {{request('status') == 0 ? 'selected' : ''}}>Non Attivo</option>
+                @endif 
             </select>
         </div>
     </div>
@@ -106,6 +113,25 @@
             </select>
         </div>
     </div>
+    
+    <div class="col">
+        <div class="form-group">
+            <select class="custom-select" name="disabled">
+                    <option>Disabile</option>
+                    @if(request('disabled') == "1")
+                        <option selected="selected" value="1">Sì</option>
+                        <option value="2">No</option>
+                    @elseif(request('disabled') == "2")
+                        <option value="1">Sì</option>
+                        <option selected="selected" value="2">No</option>
+                    @else
+                        <option value="1">Sì</option>
+                        <option value="2">No</option>
+                    @endif
+
+            </select>
+        </div>
+    </div>
 
     <div class="col">
         <div class="form-group">
@@ -120,11 +146,11 @@
     {!!Form::hidden('from', request('from'))!!}
     {!!Form::hidden('to', request('to'))!!}
 
-    <div class="col col-xl-2">
+    {{-- <div class="col col-xl-2">
         <div class="form-group">
         <a style="height:38px; line-height:28px;" href="{{route('contacts.create')}}?company_id=" title="crea contatti da selezione" class="btn btn-success btn-sm"><i class="fas fa-plus"></i> Crea Contatti</a>
         </div>
-    </div>
+    </div> --}}
 
 
 </div>
@@ -180,6 +206,7 @@ $('#daterange-btn').on('apply.daterangepicker', function(ev, picker) {
     $('select[name="tipo"]').select2({placeholder: 'Tipo contatto', width:'100%'});
     $('select[name="sector"]').select2({placeholder: 'Categorie', width:'100%'});
     $('select[name="supplier"]').select2({placeholder: 'Fornitore', width:'100%'});
+    $('select[name="disabled"]').select2({placeholder: 'Disabile', width:'100%'});
 
     $('select.custom-select').on('change', function(){
         $('#formFilter').submit();
@@ -203,6 +230,7 @@ $('#daterange-btn').on('apply.daterangepicker', function(ev, picker) {
         data.tipo = ($('select[name="tipo"]').val() == "") ? null : $('select[name="tipo"]').val();
         data.sector = ($('select[name="sector"]').val() == "") ? null : $('select[name="sector"]').val();
         data.fornitore = ($('select[name="fornitore"]').val() == "") ? null : $('select[name="fornitore"]').val();
+        data.disabled = ($('select[name="disabled"]').val() == "") ? null : $('select[name="disabled"]').val();
         data._token = token;
 
 

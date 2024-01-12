@@ -21,12 +21,12 @@ class Country extends Primitive
 
     public function scopeEu($query)
     {
-        return $query->where('iso2', '!=', 'IT')->where('is_eu', 1);
+        return $query->where('iso2', '!=', 'IT')->where('is_eu', 1)->orderBy('name');
     }
 
     public function scopeWorld($query)
     {
-        return $query->where('is_eu', 0);
+        return $query->where('is_eu', 0)->orderBy('name');
     }
 
     public static function getCountryPhone($code)

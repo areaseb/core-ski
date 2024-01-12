@@ -8,8 +8,14 @@
             <div class="form-group row">
                 <label class="col-sm-4 col-form-label">Pagamento*</label>
                 <div class="col-sm-8">
-                    {!! Form::select('pagamento', config('invoice.payment_types')
-                    , null, ['class' => 'form-control select2bs4', 'data-placeholder' => 'Seleziona Tipo Pagamento', 'required']) !!}
+                	@php
+                		if(!isset($invoice)){
+                			$pagam = 'RIDI';
+                		} else {
+                			$pagam = $invoice->pagamento;
+                		} 
+                	@endphp
+                    {!! Form::select('pagamento', config('invoice.payment_types'), null, ['class' => 'form-control select2bs4', 'data-placeholder' => 'Seleziona Tipo Pagamento', 'id' => 'pagamento', 'required']) !!}
                 </div>
             </div>
 
@@ -134,7 +140,7 @@
                         <label class="col-sm-4 col-xl-6 col-form-label">% rit. acconto</label>
                         <div class="col-sm-8 col-xl-6">
                             <div class="input-group">
-                                {!! Form::text('ritenuta', null, ['class' => 'form-control input-decimal']) !!}
+                                {!! Form::text('perc_ritenuta', null, ['class' => 'form-control input-decimal']) !!}
                                 <div class="input-group-append">
                                     <span class="input-group-text input-group-text-sm" id="basic-addon2">00.00 %</span>
                                 </div>
@@ -158,23 +164,28 @@
 </div>
 
 @push('scripts')
+<script>
+	$('#pagamento').select2().val('{{$pagam}}').trigger('change');
+</script>
 <script src="{{asset('plugins/tagsinput/tagsinput.min.js')}}"></script>
 <script>
     $('input.ti').tagsinput('items');
     $('select[name="pagamento"]').on('change', function(){
-        if($(this).val().includes('RB') || $(this).val().includes('RIDI'))
-        {
-            $('input[name="spese"]').val('3.80');
-        }
-        else if($(this).val() == 'BO3P' || $(this).val() == 'BO5P')
-        {
-            $('input.ti').tagsinput('add', '21/07/2020');
-            $('input.ti').tagsinput('add', '31/07/2020');
-        }
-        else
-        {
-            $('input[name="spese"]').val('');
-        }
+    	if($('select[name="pagamento"]').val() != null){
+	        if($('select[name="pagamento"]').val().includes('RB'))
+	        {
+	            $('input[name="spese"]').val('3.80');
+	        }
+	        else if($('select[name="pagamento"]').val() == 'BO3P' || $('select[name="pagamento"]').val() == 'BO5P')
+	        {
+	            $('input.ti').tagsinput('add', '21/07/2020');
+	            $('input.ti').tagsinput('add', '31/07/2020');
+	        }
+	        else
+	        {
+	            $('input[name="spese"]').val('');
+	        }
+	    }
     });
 </script>
 @endpush

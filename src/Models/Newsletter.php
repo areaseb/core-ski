@@ -3,11 +3,25 @@
 namespace Areaseb\Core\Models;
 
 use App\User;
-use Areaseb\Core\Models\Template;
+use Areaseb\Core\Models\{Template, Contact};
 
 class Newsletter extends Primitive
 {
-
+	
+	public static function query() {
+        $query = parent::query();
+        
+        if(!auth()->user()->hasRole('super')){
+        	$user_branch = auth()->user()->contact->branchContact()->branch_id;
+        	$contact_ids = \DB::table('contact_branch')->where('branch_id', $user_branch)->pluck('contact_id')->toArray();
+        	$users = Contact::whereIn('id', $contact_ids)->pluck('user_id')->toArray();
+        	$query = $query->whereIn('owner_id', $users);
+        	return $query;
+        }		
+        
+		return $query;
+    }
+    	
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');

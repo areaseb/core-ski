@@ -17,14 +17,18 @@
             <div class="form-group row">
                 <label class="col-sm-4 col-form-label">Descrizione</label>
                 <div class="col-sm-8">
-                    {!! Form::textarea('descrizione', null, ['class' => 'form-control desc', 'rows' => 2, 'maxlength' => 999]) !!}
+                    {!! Form::textarea('descrizione', null, ['class' => 'form-control desc textarea', 'rows' => 2, 'maxlength' => 999]) !!}
                 </div>
             </div>
-            @if(isset($invoice))
-                @php $exemption_id = $invoice->company->exemption_id; @endphp
-            @else
-                @php $exemption_id = null; @endphp
-            @endif
+            
+            @php 
+                if(isset($invoice)){
+                	$exemption_id = $invoice->company != null ? $invoice->company->exemption_id : 12; 
+                } else {
+                	$exemption_id = null;
+                }
+            @endphp
+                
             <div class="form-group row">
                 <label class="col-sm-4 col-form-label">Esenzione</label>
                 <div class="col-sm-8">
@@ -121,18 +125,32 @@
 
 @push('scripts')
 {{-- <script src="{{asset('js/invoices.js')}}"></script> --}}
+<script src="{{asset('plugins/summernote/summernote-bs4.min.js')}}"></script>
+<script src="{{asset('plugins/summernote/lang/summernote-it-IT.js')}}"></script>
 <script>
+
+
+let editor = $('textarea.textarea');
+editor.summernote({
+    lang: 'it-IT',
+    toolbar: [
+        ['font', ['bold', 'underline', 'clear']],
+        ['fontname', ['fontname']],
+        ['color', ['color']],
+        ['para', ['ul', 'ol', 'paragraph']],
+    ]
+});
 
 var item = [];
 var items = [];
 var itemsFromDB = ($('textarea#itemsToForm').val() != '') ? JSON.parse($('textarea#itemsToForm').val()) : [];
 var itemsChildren = [];
-
-@isset($invoice)
-    @if($invoice->company->exemption_id)
+console.log(itemsFromDB);
+/*@isset($invoice)
+    @if($invoice->company != null && $invoice->company->exemption_id)
         $("select#esenzione").select2('data', {id: '{{$invoice->company->exemption_id}}', text: 'esenti'});
     @endif
-@endisset
+@endisset*/
 
 const getSconti = () => ({
     uno: $('input[name=sconto1]').val() ? $('input[name=sconto1]').val() : 0,
@@ -146,7 +164,7 @@ const findSconto = (s) => (1-(parseFloat(s.uno)/100))*(1-(parseFloat(s.due)/100)
 
 const getExtra = (response) => {
     extra = {};
-    extra.c_exception = response.exemption_id+"";
+    extra.c_exemption = response.exemption_id+"";
     extra.c_s1 = response.s1;
     extra.c_s2 = response.s2;
     extra.c_s3 = response.s3;
@@ -160,10 +178,11 @@ const processResult = (response, extra) => {
     $('input.codice').val(response.codice);
     $('textarea.desc').val(response.descrizione);
     $('button#addItem').prop('disabled', false);
-    if(extra.c_exception != 'null')
+   	
+    if(response.exemption_id != 'null')
     {
         $('input#perc_iva').val(0);
-        $('select#esenzione').val(extra.c_exception);
+        $('select#esenzione').val(response.exemption_id);
         $('select#esenzione').trigger('change');
     }
     else
@@ -187,7 +206,7 @@ const processResult = (response, extra) => {
 const addChildrenItems = (element, extra) => {
 
     let perc_iva = 0;
-    if(extra.c_exception != 'null')
+    if(extra.c_exemption != 'null')
     {
         perc_iva = 0;
     }
@@ -203,7 +222,7 @@ const addChildrenItems = (element, extra) => {
             element.descrizione,
             element.product.prezzo,
             perc_iva,
-            parseInt(element.qta),
+            parseFloat(element.qta),
             1 - (element.sconto/100),
             element.sconto,
             extra.nazione,
@@ -250,7 +269,7 @@ class Item
 
 const resetItemForm = () => {
     $('#products').select2().val(null).trigger('change');
-    $('textarea.desc').val('');
+    $('textarea.desc').summernote('reset');
     $('input#prezzo').val('');
     $('input#perc_iva').val('');
     $('input.codice').val('');
@@ -258,7 +277,7 @@ const resetItemForm = () => {
     $('input[name=sconto1]').val('');
     $('input[name=sconto2]').val('');
     $('input[name=sconto3]').val('');
-    $('select[name="exemption_id"]').select2().val(null).trigger('change');
+    $('select[name="exemption_id"]').select2({allowClear: true}).val(null).trigger('change');
     $('input[name=item_id]').val('');
 
     let btn = $('button#addItem');
@@ -285,13 +304,22 @@ const addItemToTable = (item) => {
             html +='<td></td>';
         }
         html += '<td>'+item.ivato.toFixed(2)+'</td>';
-        html += '<td>'+item.subtotal().toFixed(2)+'</td>';
+        html += '<td class="subtotale">'+item.subtotal().toFixed(2)+'</td>';
         html += '<td class="pr-2">';
         html += '<a href="#" class="btn btn-sm removeProdRow" id="prodId-'+item.uid+'"><span class="text-danger"><i class="fa fa-trash"></i></span></a>';
         html += '<a href="#" class="btn btn-sm editProdRow" id="prodId-'+item.uid+'"><span class="text-warning"><i class="fa fa-edit"></i></span></a>';
         html += '</td>';
     html += '</tr>';
     $('.table.voci tbody').append(html);
+    
+    if(isNaN($('.table.voci td.tot_voci').text()) || $('.table.voci td.tot_voci').text() == ''){
+    	var tot = 0;
+    } else {
+    	var tot = parseFloat($('.table.voci td.tot_voci').text());
+    }
+    tot = tot + item.subtotal();
+    $('.table.voci td.tot_voci').text(tot.toFixed(2));
+    
     resetItemForm();
 }
 
@@ -312,7 +340,7 @@ const addItemsToTable = (r) => {
                 item.qta,
                 sconto,
                 perc_sconto,
-                item.exception_id,
+                item.exemption_id,
                 nazione,
                 true,
                 item.id
@@ -324,13 +352,20 @@ const addItemsToTable = (r) => {
     }
 }
 
-let company = null;let extra = {}; let esenzione = null;
+let company = null;let contact = null;let extra = {}; let esenzione = null;
 let nazione = "{{$nazione ?? null}}";
 company = $('select[name="company_id"]').val();
-
-if(company)
+contact = $('select[name="contact_id"]').val();
+if(company != '')
 {
     axios.get( baseURL+'api/companies/'+company+'/discount-exemption').then(function(r){
+        nazione = r.data.nation;
+        esenzione = r.data.exemption_id;
+    });
+}
+if(contact != '')
+{
+    axios.get( baseURL+'api/contacts/'+contact+'/discount-exemption').then(function(r){
         nazione = r.data.nation;
         esenzione = r.data.exemption_id;
     });
@@ -338,10 +373,23 @@ if(company)
 
 $('select[name="company_id"]').on('change', function(){
     company = $('select[name="company_id"]').val();
-    axios.get( baseURL+'api/companies/'+company+'/discount-exemption').then(function(r){
-        nazione = r.data.nation;
-        esenzione = r.data.exemption_id;
-    });
+    if(company != ''){
+    	axios.get( baseURL+'api/companies/'+company+'/discount-exemption').then(function(r){
+	        nazione = r.data.nation;
+	        esenzione = r.data.exemption_id;
+	    });
+    }
+    
+});
+$('select[name="contact_id"]').on('change', function(){
+    contact = $('select[name="contact_id"]').val();
+    if(contact != ''){
+    	axios.get( baseURL+'api/contacts/'+contact+'/discount-exemption').then(function(r){
+	        nazione = r.data.nation;
+	        esenzione = r.data.exemption_id;
+	    });
+    }
+    
 });
 
 addItemsToTable(itemsFromDB, nazione);
@@ -349,8 +397,8 @@ addItemsToTable(itemsFromDB, nazione);
 $("#products").on('select2:select', function(){
     let prod_id = $(this).find(':selected').val();
 
-    if($('select[name="company_id"]').val() == ""){
-        err("Devi prima selezionare un'azienda");
+    if($('select[name="company_id"]').val() == "" && $('select[name="contact_id"]').val() == ""){
+        err("Devi prima selezionare un cliente");
         resetItemForm();
         return false;
     }
@@ -363,30 +411,62 @@ $("#products").on('select2:select', function(){
     }
     else
     {
-        axios.get( baseURL+'api/companies/'+company+'/discount-exemption').then(function(resp1){
+	        
+        if($('select[name="company_id"]').val() != "")
+        {
+        	axios.get( baseURL+'api/companies/'+ $('select[name="company_id"]').val() +'/discount-exemption').then(function(resp1){
 
-            //get extra info from company
-            extra = getExtra(resp1.data);
+	            //get extra info from company
+	            extra = getExtra(resp1.data);
 
-            axios.get( baseURL+'api/products/'+prod_id+'/'+extra.locale ).then(function(resp2){
+	            axios.get( baseURL+'api/products/'+prod_id+'/'+extra.locale ).then(function(resp2){
 
-                //show process inf in table
-                processResult(resp2.data, extra)
+	                //show process inf in table
+	                processResult(resp2.data, extra)
 
-                if(resp2.data.children !== null)
-                {
-                    axios.get( baseURL+"api/products/"+prod_id+"/children/"+company ).then(function(resp3){
+	                if(resp2.data.children !== null)
+	                {
+	                    axios.get( baseURL+"api/products/"+prod_id+"/children/"+ $('select[name="company_id"]').val() ).then(function(resp3){
 
-                        //load children
-                        resp3.data.forEach(function(element){
-                            addChildrenItems(element, extra)
-                        });
+	                        //load children
+	                        resp3.data.forEach(function(element){
+	                            addChildrenItems(element, extra)
+	                        });
 
-                    });
-                }
+	                    });
+	                }
 
-            });
-        });
+	            });
+	        });	
+        } 
+        else if($('select[name="contact_id"]').val() != "")
+        {
+        	axios.get( baseURL+'api/contacts/'+ $('select[name="contact_id"]').val() +'/discount-exemption').then(function(resp1){
+
+	            //get extra info from company
+	            extra = getExtra(resp1.data);
+
+	            axios.get( baseURL+'api/products/'+prod_id+'/'+extra.locale ).then(function(resp2){
+
+	                //show process inf in table
+	                processResult(resp2.data, extra)
+
+	                if(resp2.data.children !== null)
+	                {
+	                    axios.get( baseURL+"api/products/"+prod_id+"/children/"+ $('select[name="contact_id"]').val() ).then(function(resp3){
+
+	                        //load children
+	                        resp3.data.forEach(function(element){
+	                            addChildrenItems(element, extra)
+	                        });
+
+	                    });
+	                }
+
+	            });
+	        });	
+        }
+        
     }
 
 });
@@ -422,6 +502,10 @@ $('button#addItem').on('click', function(e){
     var perc_sconto = getPercSconto(sconto);
     var codice = $('input.codice').val();
 
+    if(esenzione_id == '' && perc_iva == ''){
+        err('Selezionare Esenzione o inserire l\'iva');
+        return;
+    }
     if($(this).hasClass('edit'))
     {
         var item_id = $('input.item_id').val();
@@ -460,8 +544,8 @@ const updateItemWhere = (newItem, uid) => {
 
             if(elem.qta != newItem.qta)
             {
-                elem.qta = parseInt(newItem.qta).toFixed(2);
-                $('tr.prodRowId-'+uid+' td').eq(1).text(parseInt(newItem.qta).toFixed(2));
+                elem.qta = parseFloat(newItem.qta).toFixed(2);
+                $('tr.prodRowId-'+uid+' td').eq(1).text(parseFloat(newItem.qta).toFixed(2));
             }
 
             if(elem.prezzo != newItem.prezzo)
@@ -495,14 +579,28 @@ const updateItemWhere = (newItem, uid) => {
             {
                 elem.perc_iva = parseInt(newItem.perc_iva);
             }
+		
+			if(elem.exemption_id != newItem.exemption_id)
+            {	
+            	if(newItem.exemption_id == null){           		
+            		elem.exemption_id = null;
+            	} else {         		
+            		elem.exemption_id = parseInt(newItem.exemption_id);
+            	}                
+            }
 
 
             elem.ivato = parseInt(newItem.ivato);
             $('tr.prodRowId-'+uid+' td').eq(5).text((newItem.subtotal()).toFixed(2));
 
-
         }
     });
+    
+    var tot = 0;
+    $('table.voci > tbody  > tr > td.subtotale').each(function(index, td) { 
+	   tot = tot + parseFloat($(td).text());
+	});
+	$('.table.voci td.tot_voci').text(tot.toFixed(2));
 }
 
 
@@ -513,6 +611,10 @@ $('table.table.voci').on('click', 'a.removeProdRow', function(e){
     var i = items.filter(item => item.uid == uid)[0];
     if(i.item_id)
     {
+    	var tot = parseFloat($('.table.voci td.tot_voci').text());
+	    tot = tot - i.subtotal();
+	    $('.table.voci td.tot_voci').text(tot.toFixed(2));
+	    
         let url = "{{url('invoices-item')}}/"+i.item_id;
         axios.delete(url, {_token:token}).then(response => {
             if(response.data == 'done')
@@ -534,9 +636,14 @@ $('table.table.voci').on('click', 'a.editProdRow', function(e){
     e.preventDefault();
     var uid = $(this).attr('id').replace('prodId-', '');
     var i = items.filter(item => item.uid == uid)[0];
+   
     $('input[name="codice"]').val(i.codice);
-    $('#products').select2().val(i.id).trigger('change');
-    $('textarea.desc').val(i.descrizione);
+    $('#products').select2().val(i.product_id).trigger('change');
+    //$('textarea.desc').val(i.descrizione);
+    if(i.descrizione != ''){
+    	$("textarea.desc").summernote('code', '');
+    	$("textarea.desc").summernote('pasteHTML', i.descrizione);
+    }    
     $('input#perc_iva').val(i.perc_iva);
     $('input#qta').val(parseFloat(i.qta).toFixed(2));
     $('input#prezzo').val(i.prezzo);
@@ -544,11 +651,11 @@ $('table.table.voci').on('click', 'a.editProdRow', function(e){
 
     if(i.exemption_id)
     {
-        $('select[name="exemption_id"]').select2().val(i.exemption_id).trigger('change');
+        $('select[name="exemption_id"]').select2({allowClear: true}).val(i.exemption_id).trigger('change');
     }
     if(i.exemption_id == null)
     {
-        $('select[name="exemption_id"]').select2().val(null).trigger('change');
+        $('select[name="exemption_id"]').select2({allowClear: true}).val(null).trigger('change');
     }
 
     if(i.perc_sconto)

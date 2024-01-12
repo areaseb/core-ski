@@ -126,6 +126,17 @@
                 </div>
             </div>
 
+            <div class="form-group">
+                <label>Ritenuta d'acconto €</label>
+                <div class="input-group">
+
+                    {!! Form::text('rit_acc', null, ['class' => 'form-control', 'id' => 'rit_acc']) !!}
+                    <div class="input-group-append">
+                        <span class="input-group-text" id="basic-addon2">00.00€</span>
+                    </div>
+                </div>
+            </div>
+
 
             <div class="form-group">
                 <label>Totale*</label>

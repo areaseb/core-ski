@@ -1,5 +1,5 @@
 @php
-    $items = Areaseb\Core\Models\Item::whereIn('invoice_id', $company->invoices()->pluck('invoices.id'))->with('invoice')->get()
+    $items = Areaseb\Core\Models\Item::whereIn('invoice_id', $company->invoices()->where('numero', '!=', '')->pluck('invoices.id'))->with('invoice')->get()
 @endphp
 
     <div class="table-responsive">

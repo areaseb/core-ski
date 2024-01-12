@@ -28,6 +28,8 @@ class CreateProductsTable extends Migration
             $table->string('name_de')->nullable();
             $table->text('desc_de')->nullable();
             $table->unsignedTinyInteger('perc_iva')->nullable();
+            $table->integer('exemption_id')->nullable();
+            $table->foreign('exemption_id')->references('id')->on('exemptions');
             $table->timestamps();
         });
     }

@@ -11,21 +11,14 @@ return [
     ],
     'payment_modes' => [
         ""=> "",
-        "A" => "Assegno",
         "B" => "Bonifico",
-        "O" => "Bolletino",
-        "L" => "Bolletino postale",
-        "M" => "Cambiale",
         "C" => "Contanti",
-        "G" => "PagoPA",
         "P" => "POS",
-        "I" => "RIBA",
-        "R" => "RID",
-        "S" => "SEPA",
-        "N" => "Anticipo"
+        "S" => "SumUp",
+        "A" => "Paypal",
+        "Y" => "Payleven"         
     ],
     'payment_types' => [
-        ""     => "",
         "BOVF" => "Bonifico vista fattura",
         "BO3P" => "Bonifico 30%",
         "BO5P" => "Bonifico 50%",

@@ -24,7 +24,7 @@ class CreateInvoicesTable extends Migration
             $table->integer('numero_registrazione');
             $table->date('data');
             $table->date('data_registrazione');
-
+            $table->integer('branch_id');
             //INTESTAZIONE DDT
             $table->string('ddt_n_doc', 50)->nullable();
             $table->date('ddt_data_doc')->nullable();
@@ -54,12 +54,13 @@ class CreateInvoicesTable extends Migration
 
             $table->smallInteger('sendable')->default(0);//vedi config.fe
             $table->smallInteger('status')->default(0);//vedi config.fe
+            $table->smallInteger('aperta')->default(1);
 
             $table->string('old_id')->nullable();// string identifier id
             $table->string('fe_id')->nullable();// string identifier id
 
             $table->string('split_payment')->nullable();
-
+            $table->integer('client_id');
             $table->timestamps();
         });
     }

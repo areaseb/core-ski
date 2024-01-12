@@ -39,6 +39,13 @@ return [
     'referrals' => 'referenti',
     'agents' => 'agenti',
     'maps' => 'mappa',
-    'renewals' => 'rinnovi'
+    'renewals' => 'rinnovi',
+    'counters' => 'contaore',
+    'ora' => 'planning',
+    'masters' => 'maestri',
+    'collettivo' => 'collettivi',
+    'notes' => 'richieste',
+    'type' => 'tipologia',
+    'merge' => 'unione'
 
 ];

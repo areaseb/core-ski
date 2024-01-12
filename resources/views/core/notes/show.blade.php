@@ -16,7 +16,7 @@
         </span>
     </div>
     <div class="direct-chat-text" style="margin-left:0;" id="note-{{$note->id}}">
-        {!!$note->description!!}
+        {!!nl2br($note->description)!!}
         @if($note->filename)
             <br>
             <a target="_blank" href={{asset('storage/'.$note->filename)}}>{{$note->filename}}</a>

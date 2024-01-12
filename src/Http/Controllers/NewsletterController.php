@@ -22,7 +22,7 @@ class NewsletterController extends Controller
     {
         if(auth()->user()->hasRole(['testimonial', 'agent']))
         {
-            $newsletters = Newsletter::where('owner_id', auth()->user()->id)->orderBy('created_at', 'DESC')->get();
+            $newsletters = Newsletter::query()->where('owner_id', auth()->user()->id)->orderBy('created_at', 'DESC')->get();
         }
         else
         {

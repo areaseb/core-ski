@@ -61,23 +61,46 @@ class InvoiceToXml extends Primitive
     {
         $DatiTrasmissione = $header->DatiTrasmissione;
         $DatiTrasmissione->ProgressivoInvio = $this->invoice->id;
+        
         if($this->invoice->company->private)
         {
-            $DatiTrasmissione->CodiceDestinatario = ($this->invoice->company->nation == 'IT') ? '0000000' : 'XXXXXXX';
-
             if($this->invoice->company->pec)
             {
             	$DatiTrasmissione->PECDestinatario = $this->invoice->company->pec;
+            } else {
+            	if($this->invoice->tipo_doc == 'Pu')
+		        {
+		            $DatiTrasmissione->CodiceDestinatario = $this->invoice->pa_cup;
+		        } else {
+		        	$DatiTrasmissione->CodiceDestinatario = ($this->invoice->company->nation == 'IT') ? '0000000' : 'XXXXXXX';
+		        }            	
             }
+            
+            if($this->invoice->tipo_doc == 'Pu')
+	        {
+	        	unset($DatiTrasmissione->CodiceDestinatario);
+	            $DatiTrasmissione->CodiceDestinatario = $this->invoice->pa_cup;
+	        }
         }
         else
         {
-            $DatiTrasmissione->CodiceDestinatario = $this->invoice->company->sdi;
-
-            if($this->invoice->company->sdi == '0000000' && $this->invoice->company->pec)
+            if(($this->invoice->company->sdi == '0000000' || $this->invoice->company->sdi == '' || $this->invoice->company->sdi == 'null' || is_null($this->invoice->company->sdi)) && $this->invoice->company->pec)
             {
             	$DatiTrasmissione->PECDestinatario = $this->invoice->company->pec;
+            } else {
+            	if($this->invoice->tipo_doc == 'Pu')
+		        {
+		            $DatiTrasmissione->CodiceDestinatario = $this->invoice->pa_cup;
+		        } else {
+		        	$DatiTrasmissione->CodiceDestinatario = $this->invoice->company->sdi;
+		        }
             }
+            
+            if($this->invoice->tipo_doc == 'Pu')
+	        {
+	        	unset($DatiTrasmissione->CodiceDestinatario);
+	            $DatiTrasmissione->CodiceDestinatario = $this->invoice->pa_cup;
+	        }
         }
         if($this->invoice->tipo_doc == 'Pu')
         {

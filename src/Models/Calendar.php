@@ -11,6 +11,22 @@ class Calendar extends Primitive
 {
     public $timestamps = false;
 
+	public static function query() {
+        $query = parent::query();
+        
+        if(auth()->user()){
+        	if(!auth()->user()->hasRole('super')){
+	        	$user_branch = auth()->user()->contact->branchContact()->branch_id;
+	        	$contact_ids = \DB::table('contact_branch')->where('branch_id', $user_branch)->pluck('contact_id')->toArray();
+	        	$users = Contact::whereIn('id', $contact_ids)->pluck('user_id')->toArray();
+	        	$query = $query->whereIn('user_id', $users);
+	        	return $query;
+	        }
+        }		
+        
+		return $query;
+    }
+    
     public function events()
     {
         return $this->hasMany(Event::class);
@@ -50,7 +66,7 @@ class Calendar extends Primitive
             {
                 if($cal->nome == 'global')
                 {
-                    $calendars[$cal->id] = $cal->user->contact->fullname;
+                	$calendars[$cal->id] = $cal->user->contact->fullname;                    
                 }
                 else
                 {
@@ -71,6 +87,13 @@ class Calendar extends Primitive
         return self::where('user_id', '!=', auth()->user()->id)->get();
     }
 
+	public function getUsernameAttribute() {
+		if(!$this->user)
+			return null;
+		
+		return $this->user->name;
+	}
+
     /**
      * loop each calendar AND create a .ics AND save it in storage
      * @return [void]
@@ -80,11 +103,13 @@ class Calendar extends Primitive
         foreach (self::all() as $calendar)
         {
             $contents = $calendar->header;
+            
             foreach($calendar->events as $event)
             {
-$description = (strstr($event->summary, PHP_EOL)) ? '' : $event->summary;
-                $singleEvent =
-"\r\nBEGIN:VEVENT\r
+            	
+				$description = (strstr($event->summary, PHP_EOL)) ? '' : $event->summary;
+				
+                $singleEvent = "BEGIN:VEVENT\r
 DTSTART:".$event->starts_at->format('Ymd\THis')."\r
 DTEND:".$event->ends_at->format('Ymd\THis')."\r
 DTSTAMP:".Carbon::now()->format('Ymd\THis')."\r
@@ -102,10 +127,10 @@ ACTION:DISPLAY\r
 DESCRIPTION:This is an event reminder\r
 TRIGGER:-PT10M\r
 END:VALARM\r
-END:VEVENT\r";
+END:VEVENT\r\n";
 $contents .= $singleEvent;
             }
-            $contents .= "\r\nEND:VCALENDAR";
+            $contents .= "END:VCALENDAR";
 
             $filename = 'public/calendars/'.$calendar->ics_name.'.ics';
 
@@ -124,8 +149,7 @@ $contents .= $singleEvent;
      */
     public function getHeaderAttribute()
     {
-        return
-"BEGIN:VCALENDAR\r
+        return "BEGIN:VCALENDAR\r
 PRODID:-//".config('app.name')."//IT\r
 VERSION:2.0\r
 CALSCALE:GREGORIAN\r
@@ -148,7 +172,7 @@ TZNAME:CET\r
 DTSTART:19701025T030000\r
 RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU\r
 END:STANDARD\r
-END:VTIMEZONE\r";
+END:VTIMEZONE\r\n";
     }
 
     public function getIcsNameAttribute()

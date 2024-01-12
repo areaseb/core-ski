@@ -16,11 +16,25 @@
     @endforeach
 
     @foreach(Areaseb\Core\Models\Calendar::where('nome', 'global')->where('privato', false)->get() as $c)
-        @if($c->user->fullname == $user->fullname)
-            <a class="btn btn-primary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i> {{$c->user->fullname}}</a>
+        @if($calendar->id == $c->id)
+            <a class="btn btn-primary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i> {{$c->user->name}}</a>
         @else
-            <a class="btn btn-secondary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i> {{$c->user->fullname}}</a>
+            <a class="btn btn-secondary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i> {{$c->user->name}}</a>
         @endif
+    @endforeach
+    
+    @foreach(Areaseb\Core\Models\Calendar::where('nome', '!=', 'global')->where('privato', true)->where('user_id', auth()->user()->id)->get() as $c)
+        @if($calendar->id == $c->id)
+            <a class="btn btn-primary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i> {{$c->nome}}</a>
+        @else
+            <a class="btn btn-secondary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i> {{$c->nome}}</a>
+        @endif
+    @endforeach
+    
+    @foreach(\DB::table('calendars_user')->where('user_id', auth()->user()->id)->get() as $c)
+    	
+    	<a class="btn btn-secondary m-1" href="{{$c->calendar_id}}"><i class="fa fa-eye"></i> {{Areaseb\Core\Models\Calendar::find($c->calendar_id)->nome}}</a>
+    	
     @endforeach
 
 
@@ -42,9 +56,21 @@
 
     @foreach(Areaseb\Core\Models\Calendar::where('nome', 'global')->where('privato', false)->get() as $c)
 
-        <a class="btn btn-secondary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i>{{$c->user->fullname}}</a>
+        <a class="btn btn-secondary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i>{{$c->user->name}}</a>
 
 
+    @endforeach
+    
+    @foreach(Areaseb\Core\Models\Calendar::where('nome', '!=', 'global')->where('privato', true)->where('user_id', auth()->user()->id)->get() as $c)
+        
+        <a class="btn btn-secondary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i> {{$c->nome}}</a>
+        
+    @endforeach
+    
+    @foreach(\DB::table('calendars_user')->where('user_id', auth()->user()->id)->get() as $c)
+    	
+    	<a class="btn btn-secondary m-1" href="{{$c->calendar_id}}"><i class="fa fa-eye"></i> {{Areaseb\Core\Models\Calendar::find($c->calendar_id)->nome}}</a>
+    	
     @endforeach
 
 

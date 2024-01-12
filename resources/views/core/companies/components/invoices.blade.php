@@ -1,6 +1,6 @@
 @if($company->invoices()->count() < 8)
 
-    @foreach($company->invoices()->orderBy('data','DESC')->get() as $invoice)
+    @foreach($company->invoices()->where('numero', '!=', '')->where('aperta', 0)->orderBy('data','DESC')->get() as $invoice)
 
         <div class="card @if(!$loop->last) collapsed-card @endif">
             <div class="card-header bg-lightblue card-header-sm">
@@ -32,7 +32,7 @@
                     <div class="col">
                         <div class="small-box text-center">
                             Scadenza<br>
-                            <small>{{$invoice->data_scadenza->format('d/m/Y')}}</small>
+                            <small>@if($invoice->data_scadenza) {{$invoice->data_scadenza->format('d/m/Y')}} @endif</small>
                         </div>
                     </div>
                     <div class="col">
@@ -48,7 +48,8 @@
                                 <input type="checkbox" class="custom-control-input switch" data-id="{{$invoice->id}}" id="customSwitch-{{$invoice->id}}" @if($invoice->saldato) checked @endif>
                                 <label class="custom-control-label saldato" for="customSwitch-{{$invoice->id}}"></label>
                             </div> --}}
-                            <a href="{{$invoice->url}}" class="btn btn-primary btn-sm"><i class="fa fa-eye"></i></a>
+                            <a href="{{$invoice->url}}" class="btn btn-primary btn-sm"><i class="fa fa-eye"></i></a> 
+                            <a class="btn bg-success btn-sm sendToClient" data-id="{{$invoice->id}}" title="invia un'email al cliente con in allegato la fattura in pdf"><i class="fa fa-envelope"></i></a>
                         </div>
                     </div>
                 </div>
@@ -77,7 +78,7 @@
                                                     {{$item->product->nome}}
                                                 @endif
                                             </h6>
-                                            <span>{{$item->descrizione}}</span>
+                                            <span>{!! nl2br(html_entity_decode($item->descrizione)) !!}</span>
                                         </td>
                                         <td>{{$item->qta}}</td>
                                         <td>{{$item->importo_formatted}}</td>
@@ -116,7 +117,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($company->invoices()->orderBy('data','DESC')->get() as $invoice)
+                @foreach($company->invoices()->where('aperta', 0)->orderBy('data','DESC')->get() as $invoice)
                     <tr id="row-{{$invoice->id}}">
                         <td class="text-center">{{$invoice->tipo}}</td>
                         <td class="text-center">{{$invoice->numero}}</td>
@@ -126,10 +127,11 @@
                             {{$invoice->percent_iva}}
                         </td>
                         <td>{{$invoice->total_formatted}}</td>
-                        <td>{{$invoice->data_scadenza->format('d/m/Y')}}</td>
+                        <td>@if($invoice->data_scadenza){{$invoice->data_scadenza->format('d/m/Y')}}@endif</td>
                         <td>{{$invoice->pagamento}}</td>
                         <td class="text-center">
-                            <a href="{{$invoice->url}}" class="btn btn-primary btn-sm"><i class="fa fa-eye"></i></a>
+                            <a href="{{$invoice->url}}" class="btn btn-primary btn-sm"><i class="fa fa-eye"></i></a> 
+                            <a class="btn bg-success btn-sm sendToClient" data-id="{{$invoice->id}}" title="invia un'email al cliente con in allegato la fattura in pdf"><i class="fa fa-envelope"></i></a>
                         </td>
                     </tr>
                     <tr class="d-none" id="row-{{$invoice->id}}-expand">
@@ -156,5 +158,42 @@
             let rowName = $(this).attr('id');
             $('tr#'+rowName+'-expand').toggleClass('d-none');
         });
+        
+        $('a.sendToClient').on('click', function(){
+		    let token = "{{csrf_token()}}";
+		    $.post(baseURL+'pdf/send/'+$(this).attr('data-id'), {_token: token}).done(function( response ) {
+		        console.log(response);
+		        if(response == 'done')
+		        {
+		            new Noty({
+		                text: "Email Inviata",
+		                type: 'success',
+		                theme: 'bootstrap-v4',
+		                timeout: 2500,
+		                layout: 'topRight'
+		            }).show();
+		        }
+		        else if(response == 'error')
+		        {
+		            new Noty({
+		                text: "Errore",
+		                type: 'error',
+		                theme: 'bootstrap-v4',
+		                timeout: 2500,
+		                layout: 'topRight'
+		            }).show();
+		        }
+		        else
+		        {
+		            new Noty({
+		                text: response,
+		                type: 'warning',
+		                theme: 'bootstrap-v4',
+		                timeout: 2500,
+		                layout: 'topRight'
+		            }).show();
+		        }
+		    });
+		});
     </script>
 @endpush

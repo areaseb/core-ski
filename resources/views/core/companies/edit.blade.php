@@ -1,11 +1,11 @@
 @extends('areaseb::layouts.app')
 
 @section('breadcrumbs')
-    <li class="breadcrumb-item"><a href="{{config('app.url')}}companies">Aziende</a></li>
+    <li class="breadcrumb-item"><a href="{{config('app.url')}}companies">Clienti</a></li>
     <li class="breadcrumb-item"><a href="{{$company->url}}">{{$company->rag_soc}}</a></li>
 @stop
 
-@include('areaseb::layouts.elements.title', ['title' => 'Modifica Azienda'])
+@include('areaseb::layouts.elements.title', ['title' => 'Modifica Cliente'])
 
 
 @section('content')

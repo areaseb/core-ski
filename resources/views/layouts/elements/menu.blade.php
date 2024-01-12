@@ -1,4 +1,28 @@
-@if($user->can('companies.read'))
+@php
+	$cache_key = microtime();
+@endphp
+
+@if($user->can('planning.read') || $user->can('collective.read'))
+	<li class="nav-header text-uppercase">Planning</li>
+	@can('planning.view')
+	    <li class="nav-item">
+	        <a href="{{url('planning')}}" class="nav-link" >
+	            <i class="nav-icon fas fa-calendar-alt"></i>
+	            <p>Planning</p>
+	        </a>
+	    </li>
+	@endcan
+    @can('collective.read')
+		<li class="nav-item">
+		    <a href="{{url('collective')}}?cache={{$cache_key}}" class="nav-link">
+		        <i class="nav-icon fas fa-users"></i>
+		        <p>Collettivi</p>
+		    </a>
+		</li>
+	@endcan
+@endif
+
+@if($user->can('companies.read') || $user->can('notes.read') || $user->can('masters.read'))
     <li class="nav-header text-uppercase">Anagrafiche</li>
     @can('companies.read')
         <li class="nav-item">
@@ -7,21 +31,30 @@
                 <p>Clienti</p>
             </a>
         </li>
-
+	@endcan
+	@can('contacts-master.read')
+        <li class="nav-item">
+            <a href="{{url('contacts-master')}}" class="nav-link">
+                <i class="nav-icon fas fa-skiing"></i>
+                <p>Maestri</p>
+            </a>
+        </li>
+	@endcan
+	@can('notes.read')
         <li class="nav-item">
             <a href="{{route('notes.index')}}" class="nav-link">
                 <i class="nav-icon fas fa-calendar-check"></i>
                 <p>Richieste</p>
             </a>
         </li>
-
     @endcan
 @endif
+
 
 @can('calendars.view')
     <li class="nav-header text-uppercase">calendario</li>
     <li class="nav-item">
-        <a href="{{$user->default_calendar->url}}" class="nav-link" id="menu-cal">
+        <a href="{{url('calendars')}}/{{$user->default_calendar->id}}" class="nav-link" id="menu-cal">
             <i class="nav-icon fas fa-calendar-alt"></i>
             <p>Calendario</p>
         </a>
@@ -47,7 +80,7 @@
     @includeIf('riderdeals::side-nav-conf-order')
 
     @if( $user->can('invoices.read') || $user->can('costs.read') )
-        <li class="nav-item has-treeview">
+        <li class="nav-item has-treeview fatture_papa">
             <a href="#" class="nav-link">
                 <i class="nav-icon fas fa-file-invoice"></i>
                 <p>Fatture<i class="fas fa-angle-left right"></i></p>
@@ -55,11 +88,21 @@
             <ul class="nav nav-treeview">
                 @can('invoices.read')
                     <li class="nav-item">
-                        <a href="{{url('invoices')}}" class="nav-link">
+                        <a href="{{url('invoices')}}?tipo=F-A" class="nav-link fatture">
                             <i class="far fa-circle nav-icon text-success"></i>
-                            <p>Vendite</p>
+                            <p>Fatture</p>
                         </a>
                     </li>
+                    <li class="nav-item">
+                    	@php
+                    		$data = date('d/m/Y');
+                    	@endphp
+                        <a href="{{url('invoices')}}?tipo=R&range={{urlencode("$data").'+-+'.urlencode("$data")}}" class="nav-link ricevute">
+                            <i class="far fa-circle nav-icon text-success"></i>
+                            <p>Ricevute</p>
+                        </a>
+                    </li>
+
                 @endcan
                 @can('costs.read')
                     <li class="nav-item">
@@ -77,6 +120,28 @@
                         </a>
                     </li>
                 @endcan
+
+                <li class="nav-item">
+                    <a href="{{url('prima_nota')}}" class="nav-link">
+                        <i class="nav-icon fas fa-file-invoice"></i>
+                        <p>Prima nota</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{{url('ore_aperte')}}" class="nav-link">
+                        <i class="nav-icon fas fa-file-invoice"></i>
+                        <p>Ore aperte</p>
+                    </a>
+                </li>
+
+
+                <li class="nav-item">
+                    <a href="{{url('collettivi_aperti')}}" class="nav-link">
+                        <i class="nav-icon fas fa-file-invoice"></i>
+                        <p>Collettivi aperti</p>
+                    </a>
+                </li>
 
                 @includeif('renewals::site-nav')
 
@@ -120,18 +185,21 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{url('stats/categorie?year='.date('Y'))}}" class="nav-link" id="menu-stats-categorie">
+                    <a href="@if(date('m') >= 6) {{url('stats/categorie?year='.date('Y'))}} @else {{url('stats/categorie?year='.(date('Y')-1))}} @endif" class="nav-link" id="menu-stats-categorie">
                         <i class="far fa-circle nav-icon text-danger"></i>
                         <p>Categorie Prodotti</p>
                     </a>
                 </li>
-
-                @includeIf('menus.stats-products')
-
                 <li class="nav-item">
                     <a href="{{url('stats/balance')}}" class="nav-link" id="menu-stats-bilancio">
                         <i class="far fa-circle nav-icon text-info"></i>
                         <p>Bilancio</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{url('stats/maestri')}}" class="nav-link" id="menu-stats-maestri">
+                        <i class="far fa-circle nav-icon text-warning"></i>
+                        <p>Maestri</p>
                     </a>
                 </li>
             </ul>
@@ -183,6 +251,17 @@
         </li>
     @endcan
 @endif
+
+
+@can('counters.read')
+<li class="nav-header text-uppercase">Conta Ore</li>
+    <li class="nav-item">
+        <a href="{{url('counters')}}" class="nav-link" >
+            <i class="nav-icon fas fa-calendar-alt"></i>
+            <p>Conta Ore</p>
+        </a>
+</li>
+@endcan
 
 @if( $user->can('users.read') || $user->can('roles.read') || $user->can('referrals.read') || $user->can('agents.read'))
     <li class="nav-header text-uppercase">UTENTI</li>

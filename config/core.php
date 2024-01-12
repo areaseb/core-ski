@@ -3,7 +3,7 @@
 return [
     'modules' => [
         'core' => true,
-        'fe' => false,
+        'fe' => true,
     ],
 
     'email' => [

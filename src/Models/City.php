@@ -14,23 +14,23 @@ class City extends Primitive
 
 
     //list all provinces
-    static public function uniqueProvinces($region = null)
+    public static  function uniqueProvinces($region = null)
     {
+
         if(is_null($region))
-        {
-            $provinces = Cache::remember('provinces', 60*24*7, function () {
+        { 
+            //$provinces = Cache::remember('provinces', 60*24*7, function () {
                 $arr[''] = '';
                 foreach (self::select('provincia')->where('italia', 1)->distinct()->orderBy('provincia', 'ASC')->get() as $value)
                 {
                     $arr[$value->provincia] = $value->provincia;
                 }
                 return $arr;
-            });
+           // });
         }
         else
         {
             $provinces[''] = '';
-
             foreach (self::select('provincia')->where('regione', $region)->distinct()->orderBy('provincia', 'ASC')->get() as $value)
             {
                 $provinces[$value->provincia] = $value->provincia;

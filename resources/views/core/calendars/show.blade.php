@@ -55,6 +55,7 @@ $value = Cookie::get('calendar-cookie');
 <script>
 
 var calendar_cookie = '<?php echo $value; ?>';
+console.log(calendar_cookie);
     function setCookie(type){
         $.ajax({
         url: '/set-cookie',
@@ -89,20 +90,27 @@ var calendar_cookie = '<?php echo $value; ?>';
             eventLimit: true,
             
             customButtons: {
-            timeGridWeek: {
-                text: 'Settimana',
-                click: function() {
-                    setCookie('settimana');           
-                    calendar.changeView('timeGridWeek');
-                }
-            },
-            timeGridDay: {
-                text: 'Giorno',
-                click: function() {
-                    setCookie('giorno');
-                    calendar.changeView('timeGridDay');
-                }
-            },
+            	dayGridMonth: {
+	                text: 'Mese',
+	                click: function() {
+	                    setCookie('mese');           
+	                    calendar.changeView('dayGridMonth');
+	                }
+	            },
+	            timeGridWeek: {
+	                text: 'Settimana',
+	                click: function() {
+	                    setCookie('settimana');           
+	                    calendar.changeView('timeGridWeek');
+	                }
+	            },
+	            timeGridDay: {
+	                text: 'Giorno',
+	                click: function() {
+	                    setCookie('giorno');
+	                    calendar.changeView('timeGridDay');
+	                }
+	            },
             },
             dateClick: function(info) {
                 eventModal(info, calendar);
@@ -153,11 +161,14 @@ var calendar_cookie = '<?php echo $value; ?>';
         $('select.selectCalendar').val([cal_id]).change();
         $('select.selectCalendar2').val([cal_id]).change();
 
-
+		
+		if(calendar_cookie == 'mese')
+            calendar.changeView('dayGridMonth');
         if(calendar_cookie == 'settimana')
             calendar.changeView('timeGridWeek');
         if(calendar_cookie == 'giorno')
             calendar.changeView('timeGridDay');
+            
 
     });
 </script>

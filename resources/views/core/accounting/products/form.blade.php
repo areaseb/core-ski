@@ -61,8 +61,13 @@
                     </div>
                 </div>
             </div>
-
+            
             <div class="form-group">
+                <label>Esenzione</label>
+                {!! Form::select('exemption_id',$exemption_list, null, ['class' => 'form-control', 'id' => 'exemption_id']) !!}
+            </div>
+
+            {{-- <div class="form-group">
                 <label>Costo</label>
                 <div class="input-group">
                     {!! Form::text('costo', null, ['class' => 'form-control input-decimal']) !!}
@@ -71,7 +76,7 @@
                     </div>
                 </div>
                 @include('areaseb::components.add-invalid', ['element' => 'costo'])
-            </div>
+            </div> --}}
         </div>
     </div>
 </div>
@@ -158,5 +163,15 @@
 @section('scripts')
 <script>
 $('.add-select').select2({tags: true});
+
+$('select#exemption_id').on('change', function(){
+    console.log($('select#exemption_id').val());
+    if($('select#exemption_id').val() == '') {
+        $('input[name="perc_iva"]').val(22);
+    }
+    else{
+        $('input[name="perc_iva"]').val(0);
+    }
+});
 </script>
 @stop

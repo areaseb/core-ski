@@ -35,7 +35,7 @@
                                     <th data-field="data_scadenza" data-order="asc" style="width:77px;">Scadenza <i class="fas fa-sort"></i></th>
                                     <th class="d-none d-xl-table-cell">Pagamento</th>
                                     <th style="width:55px;">Saldato</th>
-                                    <th >Status</th>
+                                    <th>Status</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -45,7 +45,7 @@
                                         <td class="text-center">{{$invoice->tipo_formatted}}</td>
                                         <td class="text-center">{{$invoice->numero}}</td>
                                         <td>{{$invoice->data->format('d/m/Y')}}</td>
-                                        <td>{{$invoice->company->rag_soc}}</td>
+                                        <td>{{$invoice->company != null ? $invoice->company->rag_soc : ($invoice->contact($invoice->contact_id)->nome.' '.$invoice->contact($invoice->contact_id)->cognome .' (Contatto)')}}</td>
                                         <td>{{$invoice->imponibile_formatted}}</td>
                                         <td class="d-none d-xl-table-cell" class="text-center">{{$invoice->percent_iva}}</td>
                                         <td>{{$invoice->total_formatted}}</td>
@@ -58,7 +58,13 @@
                                             </div>
                                             <a href="{{url('invoices/'.$invoice->id.'/edit-saldo')}}" id="mod-{{$invoice->id}}" data-title="Inserisci Saldo" data-toggle="modal" data-target="#modal" class="btn btn-default btn-sm btn-modal d-none">Crea Ruolo</a>
                                         </td>
-                                        <td class="text-center">{!!$invoice->status_formatted!!}</td>
+                                        @if(config('core.modules')['fe'])
+                                            @if($invoice->tipo != 'P' && $invoice->tipo != 'R')
+                                                <td class="text-center">{!!$invoice->status_formatted!!}</td>
+                                            @else
+                                                <td>&nbsp;</td>
+                                            @endif
+                                        @endif
                                         <td class="text-center">
                                             @include('areaseb::core.accounting.invoices.components.index-actions')
                                         </td>

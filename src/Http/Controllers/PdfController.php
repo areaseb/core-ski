@@ -16,6 +16,7 @@ class PdfController extends Controller
     public function generate($model, $id)
     {
         $type = $this->findModel($model, $id);
+        
         if($type)
         {
             if($type->class == 'Invoice')
@@ -59,62 +60,114 @@ class PdfController extends Controller
     {
         $invoice = Invoice::findOrFail($id);
 
-        if(is_null($invoice->company->invoice_email))
-        {
-            return "Email mancante; Aggiungi l'email e ripeti l'operazione";
-        }
-
         if(is_null(Setting::validSmtp(0)))
         {
-            return "Impsta il server di posta e ripeti l'operazione";
+            return "Imposta il server di posta e ripeti l'operazione";
         }
 
 
         //$mailer = app()->makeWith('custom.mailer', Setting::smtp(0));
-        $dsn = 'smtp://'.Setting::smtp(0)['MAIL_USERNAME'].':'.Setting::smtp(0)['MAIL_PASSWORD'].'@'.Setting::smtp(0)['MAIL_HOST'].':'.Setting::smtp(0)['MAIL_PORT'];     
+        //$dsn = 'smtp://'.Setting::smtp(0)['MAIL_USERNAME'].':'.Setting::smtp(0)['MAIL_PASSWORD'].'@'.Setting::smtp(0)['MAIL_HOST'].':'.Setting::smtp(0)['MAIL_PORT'];  
+        //Mail::mailer($dsn);
+
         $setting = Setting::emailFatture();
-       
-        if( isset($setting[$invoice->company->lang]) )
+        
+        if( $invoice->company && isset($setting[$invoice->company->lang]))
         {
             $locale = $invoice->company->lang;
+        }
+        elseif( $invoice->contact_id && isset($setting[$invoice->contact($invoice->contact_id)->lingua]) )
+        {
+        	$locale =  $invoice->contact($invoice->contact_id)->lingua;
         }
         else
         {
             $locale = 'en';
         }
 
-        $content = str_replace('%%%nome_azienda%%%', $invoice->company->rag_soc, $setting[$locale]);
-
-        if(!$invoice->media()->pdf()->exists())
+		if( $invoice->company )
         {
-            $this->createInvoicePdf($invoice);
+            $nome_az = $invoice->company->rag_soc;
+            $email_az = $invoice->company->invoice_email;
         }
-
+        elseif( $invoice->contact_id )
+        {
+        	$nome_az = $invoice->contact($invoice->contact_id)->fullname;
+        	$email_az = $invoice->contact($invoice->contact_id)->email;
+        }
         
-       
-        $filename = $invoice->media()->pdf()->first()->filename;
+        $content = str_replace('%%%nome_azienda%%%', $nome_az, $setting[$locale]);
+
+        if($invoice->media()->pdf()->exists() == false)
+        {
+            $pdf = $this->createInvoicePdf($invoice);
+            $filename = 'Fattura_' . $invoice->numero . '_del_' . $invoice->data->format('d.m.Y') . '_' . str_replace(' ', '-', $nome_az) . '.pdf';
+            if (file_exists(storage_path('app/public/fe/pdf/inviate/'.$filename)))
+	        {
+	            unlink(storage_path('app/public/fe/pdf/inviate/'.$filename));
+	        }
+            $pdf->save(storage_path('app/public/fe/pdf/inviate/'.$filename));
+          
+            $mediable_type = 'Areaseb\Core\Models\\' . $invoice->class;
+            $order = Media::getMediaOrder($mediable_type, $invoice->id);
+            
+            Media::create([
+                'description' => 'Fattura ' . $invoice->numero . ' del ' . $invoice->data->format('d.m.Y') . ' ' . $nome_az,
+                'mime' => 'doc',
+                'filename' => $filename,
+                'mediable_id' => $invoice->id,
+                'mediable_type' => $mediable_type,
+                'media_order' => $order,
+                'size' => Storage::disk('public')->size('fe/pdf/inviate/'.$filename)
+            ]);
+            
+        }
+        
+    	$filename = $invoice->media()->pdf()->first()->filename;
+    	$file = storage_path('app/public/fe/pdf/inviate/'.$filename);
+                  
         $data = array(
-            'setting' => $invoice->company,
+            'setting' => Setting::base(),
             'content' => $content,
-            'email' => $invoice->company->invoice_email,
+            'email' =>  $email_az,
             'title' => $setting[$locale.'_title'],
             'subject' => $setting[$locale.'_subject'],
-            "file" => storage_path('app/public/fe/pdf/inviate/'.$filename),
+            "file" => $file,
             "name" => $filename             
         );
 
-        //DEFINISCO IL MAILER IN BASE ALLA CONFIGURAZIONE SMTP SCELTA
-        Mail::mailer($dsn);
-        Mail::send('areaseb::emails.invoices.content-mail',$data, function ($message) use ($data)
-        {
-            $message->to($data['email'])
-                    ->subject($data['subject'])
-                    ->from(Setting::smtp(0)['MAIL_FROM_ADDRESS'])
-                    ->attach($data['file'], [
-                        'as' => $data['name'],
-                        'mime' => 'application/pdf',
-                    ]);
-        });
+
+        config()->set('mail.host', Setting::smtp(0)['MAIL_HOST']);
+        config()->set('mail.port', Setting::smtp(0)['MAIL_PORT']);
+        config()->set('mail.encryption', Setting::smtp(0)['MAIL_ENCRYPTION']);
+        config()->set('mail.username', Setting::smtp(0)['MAIL_USERNAME']);
+        config()->set('mail.password', Setting::smtp(0)['MAIL_PASSWORD']);
+
+
+        if($invoice->tipo == 'F'){
+			Mail::send('areaseb::emails.invoices.content-mail',$data, function ($message) use ($data)
+	        {
+	            $message->to($data['email'])
+	            		->bcc(Setting::base()->email)
+	                    ->subject($data['subject'])
+	                    ->from(Setting::smtp(0)['MAIL_FROM_ADDRESS'])
+	                    ->attach($data['file'], [
+	                        'as' => $data['name'],
+	                        'mime' => 'application/pdf',
+	                    ]);
+	        });
+		} else {
+			Mail::send('areaseb::emails.invoices.content-mail',$data, function ($message) use ($data)
+	        {
+	            $message->to($data['email'])
+	                    ->subject($data['subject'])
+	                    ->from(Setting::smtp(0)['MAIL_FROM_ADDRESS'])
+	                    ->attach($data['file'], [
+	                        'as' => $data['name'],
+	                        'mime' => 'application/pdf',
+	                    ]);
+	        });
+		}
 
 
         /*$mailer->send( new SendInvoice(
@@ -154,13 +207,15 @@ class PdfController extends Controller
 
     private function addToDbAndSave($pdf, $filename, $model)
     {
-        $filename = 'Fatt_1_del_04.02.2021_AZIENDA-ITALIANA.pdf';
+        if(!$filename){
+        	$filename = 'Fatt_1_del_04.02.2021_AZIENDA-ITALIANA.pdf';
+        }
         $file = 'fe/pdf/';
         $file .= ($model->class == 'Invoice') ? 'inviate' : 'ricevute';
         $file .= '/' . $filename;
 
         $fileWithPath = storage_path('app/public/'.$file);
-        dd($fileWithPath);
+        //dd($fileWithPath);
         
         if (file_exists($fileWithPath))
         {
@@ -195,9 +250,9 @@ class PdfController extends Controller
             ]);
         }
 
-        if( $model->media()->pdf()->count() > 1 )
+        if( $model->media()->where('filename', 'like', $filename)->count() > 1 )
         {
-            $model->media()->pdf()->orderBy('created_at', 'ASC')->first()->delete();
+            $model->media()->where('filename', 'like', $filename)->orderBy('created_at', 'ASC')->first()->delete();
         }
 
 
@@ -207,8 +262,23 @@ class PdfController extends Controller
     private function getTitle($xml = null, $model)
     {
         if($model->class == 'Invoice')
-        {
-            return 'Fatt_' . $model->numero . '_del_' . $model->data->format('d.m.Y') . '_' . strtoupper( str_slug($model->company->rag_soc) ) .'.pdf';
+        {	
+        	$pre = '';
+        	if($model->tipo == 'F'){
+        		$pre = 'Fatt';
+        	} elseif($model->tipo == 'R'){
+        		$pre = 'Ric';
+        	} elseif($model->tipo == 'A'){
+        		$pre = 'Nota Acc';
+        	}
+            if($model->company != null)
+                return $pre . '_' . $model->numero . '_del_' . $model->data->format('d.m.Y') . '_' . strtoupper( str_slug($model->company->rag_soc) ) .'.pdf';
+            else{
+                $contact = $model->contact($model->contact_id);
+                $lbl = $contact->nome.'_'.$contact->cognome;
+                return $pre . '_' . $model->numero . '_del_' . $model->data->format('d.m.Y') . '_' . strtoupper( str_slug($lbl) ) .'.pdf';
+            }
+
         }
         else
         {
@@ -229,17 +299,35 @@ class PdfController extends Controller
         $title = $this->getTitle(null, $invoice);
 
         $pdf = PDF::loadView('areaseb::pdf.invoices.invoice', compact('invoice', 'company', 'title', 'base'))
-                ->setOption('margin-bottom', '0mm')
-                ->setOption('margin-top', '0mm')
-                ->setOption('margin-right', '0mm')
-                ->setOption('margin-left', '0mm')
-                ->setOption('encoding', 'UTF-8');
+        		->setOption('margin-bottom', '10mm')
+                ->setOption('margin-top', '5mm')
+                ->setOption('margin-right', '5mm')
+                ->setOption('margin-left', '5mm')
+                ->setOption('encoding', 'UTF-8')
+                ->setOption('footer-html', route('pdf.footer'))
+                ->setOption('footer-spacing', -20)
+                ->setOption('footer-font-size', 7)
+             	->setOption('footer-right', 'Pagina [page] di [toPage]') ;
+/*        		//->setPaper('a4')
+             	//->setOrientation('portrait')
+                ->setOption('header-html', route('pdf.header'))    
+             	->setOption('header-right', 'Pagina [page] di [toPage]')        	
+                ->setOption('header-font-size', 8)
+                //->setOption('header-spacing', 40)
+                ->setOption('margin-top', '40mm')
+                ->setOption('margin-bottom', '30mm')
+                ->setOption('margin-right', '5mm')
+                ->setOption('margin-left', '5mm')
+                ->setOption('footer-html', route('pdf.footer')) 
+                ->setOption('footer-font-size', 8)
+                //->setOption('footer-spacing', 30)
+                ->setOption('encoding', 'UTF-8');*/
 
         /*if($this->addToDbAndSave($pdf, $title, $invoice))
         {
             return $pdf;
         }*/
-        return false;
+        return $pdf;
     }
 
 

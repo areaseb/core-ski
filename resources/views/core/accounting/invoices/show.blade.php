@@ -8,6 +8,7 @@
     </style>
 @stop
 
+
 @section('breadcrumbs')
     <li class="breadcrumb-item"><a href="{{config('app.url')}}invoices">Fatture</a></li>
 @stop
@@ -66,17 +67,25 @@
                             {{-- <h4 class="text-primary mb-2 mt-md-2">Invoice #49029</h4> --}}
                             <ul class="list list-unstyled mb-0">
                                 <li><b>Spett.</b></li>
-                                @if($user->can('companies.write'))
-                                    <li><a href="{{$company->url}}/edit">{{strtoupper($company->rag_soc)}}</a></li>
-                                @else
-                                    <li>{{strtoupper($company->rag_soc)}}</li>
-                                @endif
-                                <li>{{$company->address}}, {{$company->zip}}</li>
-                                <li> {{$company->city}},
-                                    @if($company->nation == 'IT')
-                                        ({{$company->city()->first()->sigla_provincia}})
+                                @if($company != null)
+                                    @if($user->can('companies.write'))
+                                        <li><a href="{{$company->url}}/edit">{{strtoupper($company->rag_soc)}}</a></li>
+                                    @else
+                                        <li>{{strtoupper($company->rag_soc)}}</li>
                                     @endif
-                                    {{$company->nation}}
+                                @else
+                                    <li>{{strtoupper($contact->nome.' '.$contact->cognome)}}</li>
+                                @endif
+                                <li>{{ $company != null ? $company->address : $contact->indirizzo }}, {{ $company != null ? $company->zip : $contact->cap}}</li>
+                                <li> {{ $company != null ? $company->city : $contact->citta }},
+                                    @if($company != null)   
+                                        @if($company->nation == 'IT' && $company->city()->first())
+                                            ({{$company->city()->first()->sigla_provincia}})
+                                        @endif
+                                        {{$company->nation}}
+                                    @else
+                                        {{$contact->nazione}}
+                                    @endif
                                 </li>
                             </ul>
                         </div>
@@ -87,7 +96,9 @@
 
             <div class="row p-2 mb-4 bg-light">
                 <div class="col-sm-6 p-1" style="border-bottom:1px solid #ccc;"><b>Riferimento</b> {{$invoice->riferimento}}</div>
+                @if($company != null)
                 <div class="col-sm-6 p-1" style="border-bottom:1px solid #ccc;"><b>PIVA/C.F </b> @if($company->private) {{$company->cf}} @else {{$company->piva}} @endif</div>
+                @endif
                 <div class="col-sm-4 p-1"><b>Banca / Filiale</b></div>
                 <div class="col-sm-4 p-1"><b>ABI</b></div>
                 <div class="col-sm-4 p-1"><b>CAB</b></div>
@@ -132,7 +143,7 @@
                                     	@if(is_null($item->descrizione))
                                     		<i>Aggiungi</i>
                                     	@else
-                                    		{!!nl2br($item->descrizione)!!}
+                                    		{!!str_replace('<br /><br />', '<br />', $item->descrizione)!!}
                                     	@endif
                                     </span>
                                     <div class="template" style="display: none;">
@@ -255,8 +266,11 @@
                                     @foreach($rate as $value)
 
                                         @php
-                                            $scadenza_rata = \Carbon\Carbon::createFromFormat('d/m/Y', trim($value))->format('d/m/Y');
-
+	                                        if($value != 'NULL'){
+	                                        	$scadenza_rata = \Carbon\Carbon::createFromFormat('d/m/Y', trim($value))->format('d/m/Y');
+	                                        } else {
+	                                        	$scadenza_rata = 'Da definire';
+	                                        }
                                         @endphp
 
                                         <li class="list-group-item">
@@ -278,7 +292,7 @@
 
                             @else
                                 <li class="list-group-item">
-                                    <span class="font-weight-semibold"><b>{{$invoice->data_scadenza->format('d/m/Y')}}</b></span>
+                                    <span class="font-weight-semibold"><b>{{$invoice->data_scadenza != null ? $invoice->data_scadenza->format('d/m/Y') : ''}}</b></span>
                                     <div class="ml-auto">
                                         @if($invoice->split_payment)
                                             {{ $invoice->imponibile_formatted }}
@@ -321,9 +335,20 @@
                                     </li>
                                     <li class="list-group-item bg-light">
                                         <span class="font-weight-semibold"><b>Ritenuta d'acconto ({{$invoice->perc_ritenuta}}%)</b></span>
-                                        <div class="ml-auto">0,00 €</div>
+                                        <div class="ml-auto">€ 	@php
+                                        							if($invoice->bollo){
+                                        								$imponibile = $invoice->imponibile - $invoice->bollo;
+                                        							} else {
+                                        								$imponibile = $invoice->imponibile;
+                                        							}
+                                        							
+                                        							$ritenuta = $imponibile * ($invoice->perc_ritenuta / 100);
+                                        							
+                                        						@endphp
+                                        	{{ number_format($ritenuta, 2, ',', '.') }}					
+                                       	</div>
                                     </li>
-                                    <li class="list-group-item">
+                                    {{-- <li class="list-group-item">
                                         <span class="font-weight-semibold"><b>Arrotondamento</b></span>
                                         <div class="ml-auto">
                                             @if($user->can('invoices.write'))
@@ -341,7 +366,7 @@
                                                 <span>{{$invoice->rounding ?? '€ 0.00'}}</span>
                                             @endif
                                         </div>
-                                    </li>
+                                    </li> --}}
                                     <li class="list-group-item bg-light">
                                         <span class="font-weight-semibold"><b>Totale IVA</b></span>
                                         <div class="ml-auto">{{$invoice->iva_formatted}}</div>

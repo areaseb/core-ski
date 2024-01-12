@@ -2,6 +2,7 @@
 
 namespace Areaseb\Core\Models;
 
+use Areaseb\Core\Models\{Sede, ContactDisabled, CompanyBranches, ContactBranches};
 use Areaseb\Core\Models\Fe\EuVat;
 use \Carbon\Carbon;
 
@@ -10,10 +11,37 @@ class Company extends Primitive
     protected $casts = [
         'note' => 'array'
     ];
+    
+    public static function query() {
+        $query = parent::query();
+        
+        if(!auth()->user()->hasRole('super')){
+        	$user_branch = auth()->user()->contact->branchContact()->branch_id;
+        	$contact_ids = \DB::table('company_branch')->where('branch_id', $user_branch)->pluck('company_id')->toArray();
+        	$query = $query->whereIn('id', $contact_ids);
+        	return $query;
+        }		
+        
+		return $query;
+    }
 
     public function contacts()
     {
-        return $this->hasMany(Contact::class);
+        return $this->hasMany(Contact::class)->orderBy('cognome');
+    }
+
+    public function listContacts()
+    {
+        $listContacts = $this->hasMany(Contact::class);
+        foreach ($listContacts as $value) {
+            $value->isDisabile = ContactDisabled::where('contact_id', $value->id)->count() > 0;
+        }
+        return $listContacts;
+    }
+
+    public function branches()
+    {
+        return $this->hasMany( CompanyBranches::class);
     }
 
     public function city()
@@ -55,6 +83,18 @@ class Company extends Primitive
     {
         return Sede::where('company_id', $company_id)->get();
     }
+
+    public static function branch($company_id)
+    {
+        return Sede::where('company_id', $company_id)->pluck('id')->toArray();
+    }
+
+
+    public function listBranches()
+    {
+        return CompanyBranches::where('company_id', $this->id)->pluck('branch_id')->toArray();
+    }
+
 
     public function exemption()
     {
@@ -138,6 +178,19 @@ class Company extends Primitive
 
         return $arr;
     }
+
+
+    public function getNumOrder($branch_id)
+    {
+        //dd($this->id);
+        return Contact::select('contact_branch.*')
+                        ->Join('contact_branch', 'contact_branch.contact_id', '=', 'contacts.id')
+                        ->where('contacts.contact_type_id', 3)
+                        ->where('contact_branch.branch_id',$branch_id)
+                        ->count() + 1;  
+
+    }
+
 
     public function getCountChildrenAttribute()
     {
@@ -602,8 +655,58 @@ class Company extends Primitive
             $value = $arr[1];
             $query = $query->orderBy($field, $value);
         }
-
-
+        
+        if($data->get('search') && $data->get('search') != '')
+        {   
+        	if(auth()->user()->contact->branchContact()){
+        		$user_branch = auth()->user()->contact->branchContact()->branch_id;
+		    	$company_ids = \DB::table('company_branch')->where('branch_id', $user_branch)->pluck('company_id')->toArray();
+		    	$contact_ids = \DB::table('contact_branch')->where('branch_id', $user_branch)->pluck('contact_id')->toArray();
+        	} else {
+        		$company_ids = Company::where('active', 1)->pluck('id')->toArray();
+		    	$contact_ids = Contact::where('attivo', 1)->pluck('id')->toArray();
+        	}  	
+			
+	    	
+            $query = $query->where(function($qu) use ($data, $company_ids){
+	            				$qu->where(function($que) use ($data){
+	            					$que->where('rag_soc', 'like', '%'.$data->get('search').'%')
+			            				->orWhere('email', 'like', '%'.$data->get('search').'%')
+			            				->orWhere('phone', 'like', '%'.$data->get('search').'%')
+			            				->orWhere('mobile', 'like', '%'.$data->get('search').'%')
+			            				->orWhere('nickname', 'like', '%'.$data->get('search').'%');
+	            				})
+	            				->whereIn('id', $company_ids);            				
+            				})            				
+            				->orWhereHas('contacts', function($qu) use($data, $contact_ids) {
+            					$qu->where(function($que) use ($data){
+            						$que->where('nome', 'like', '%'.$data->get('search').'%')
+											->orWhere('cognome', 'like', '%'.$data->get('search').'%')
+											->orWhere('email', 'like', '%'.$data->get('search').'%')
+				            				->orWhere('cellulare', 'like', '%'.$data->get('search').'%')
+				            				->orWhere('nickname', 'like', '%'.$data->get('search').'%');
+            					})
+            					->whereIn('id', $contact_ids);							
+							});            						
+        }
+        
+        if($data->get('disabled') && $data->get('disabled') != 'Disabile')
+        {
+        	$contact_ids = ContactDisabled::pluck('contact_id')->toArray();
+        	$company_ids = array();
+        	
+        	foreach($contact_ids as $cid){
+        		$company_ids[] = Contact::findOrFail($cid)->company->id;
+        	}
+        
+        	if($data->get('disabled') == 1){
+        		$query = $query->whereIn('id', $company_ids);
+        	} elseif($data->get('disabled') == 2) {
+        		$query = $query->whereNotIn('id', $company_ids);
+        	}
+        }
+        
+	    	
         return $query;
 
 

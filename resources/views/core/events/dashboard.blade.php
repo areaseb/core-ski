@@ -1,5 +1,3 @@
-@can('killerquotes.read')
-
 @php
 
     $eventClass = new Areaseb\Core\Models\Event;
@@ -26,7 +24,7 @@
 
 @endphp
 
-<div class="col-6">
+<div class="col-md-6">
     <div class="card card-outline card-danger">
 
         <div class="card-header">
@@ -84,4 +82,3 @@
 
 </div>
 
-@endcan

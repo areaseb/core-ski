@@ -40,7 +40,7 @@ class PagesController extends Controller
 
         for($m = 1; $m <= date('m'); $m++)
         {
-        	$imponibili_mese = Invoice::where('data', 'like', date('Y').'-'.str_pad($m, 2, "0", STR_PAD_LEFT).'-%')->where('tipo', '<>', 'P')->where('tipo', '<>', 'D')->get();
+        	$imponibili_mese = Invoice::where('data', 'like', date('Y').'-'.str_pad($m, 2, "0", STR_PAD_LEFT).'-%')->where('tipo', '<>', 'P')->where('tipo', '<>', 'D')->where('aperta', 0)->get();
         	$imponibile_mese = 0;
 
         	foreach($imponibili_mese as $im)
@@ -78,7 +78,7 @@ class PagesController extends Controller
 
 		for($m = 1; $m <= date('m'); $m++)
         {
-        	$imponibili_mese = Invoice::where('data', 'like', $anno_prima.'-'.str_pad($m, 2, "0", STR_PAD_LEFT).'-%')->where('tipo', '<>', 'P')->where('tipo', '<>', 'D')->get();
+        	$imponibili_mese = Invoice::where('data', 'like', $anno_prima.'-'.str_pad($m, 2, "0", STR_PAD_LEFT).'-%')->where('tipo', '<>', 'P')->where('tipo', '<>', 'D')->where('aperta', 0)->get();
         	$imponibile_mese = 0;
 
         	foreach($imponibili_mese as $im)

@@ -62,22 +62,24 @@
                                     {{-- <div class="card-header" style="border-bottom:none;">
                                         <h3 class="card-title">Contatti</h3>
                                     </div> --}}
-                                    <div class="card-body p-0">
-                                        <div class="list-group">
-                                            @forelse($invoice->company->contacts as $contact)
-                                                <div class="list-group-item list-group-item-action" style="border-right:none;border-left:none;">
-                                                    <div class="d-flex w-100 justify-content-between">
-                                                    <h5 class="mb-1">{{$contact->fullname}}</h5>
-                                                    <small><a href="{{$contact->url}}"><i class="fa fa-eye"></i></a></small>
-                                                    </div>
-                                                </div>
-                                            @empty
-                                                <div class="list-group-item list-group-item-action" style="border-right:none;border-left:none;">
-                                                    Non hai contatti registrati con questa azienda
-                                                </div>
-                                            @endforelse
-                                        </div>
-                                    </div>
+                                    @if($invoice->company_id)
+	                                    <div class="card-body p-0">
+	                                        <div class="list-group">
+	                                            @forelse($invoice->company->contacts as $contact)
+	                                                <div class="list-group-item list-group-item-action" style="border-right:none;border-left:none;">
+	                                                    <div class="d-flex w-100 justify-content-between">
+	                                                    <h5 class="mb-1">{{$contact->fullname}}</h5>
+	                                                    <small><a href="{{$contact->url}}"><i class="fa fa-eye"></i></a></small>
+	                                                    </div>
+	                                                </div>
+	                                            @empty
+	                                                <div class="list-group-item list-group-item-action" style="border-right:none;border-left:none;">
+	                                                    Non hai contatti registrati con questa azienda
+	                                                </div>
+	                                            @endforelse
+	                                        </div>
+	                                    </div>
+	                                @endif
                                 </div>
                         </div>
                     </div>

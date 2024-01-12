@@ -29,6 +29,27 @@
 
 </head>
 <body class="hold-transition sidebar-mini layout-fixed">
+	
+	@php
+		$base = Areaseb\Core\Models\Setting::base();
+	@endphp
+
+	<header class="print">
+	    <div class="row" id="blue">
+	    	<p style="width: 100%;">
+		    	<b style="display: block;">{{$base->rag_soc}}</b>
+		        {{$base->indirizzo}} - {{$base->cap}} {{$base->citta}} ({{$base->provincia}})
+		        <br>
+		        P.IVA / C.F.: {{$base->piva}} / {{$base->cod_fiscale}}
+		        <br>
+		        {{$base->banca}} - IBAN: {{$base->IBAN}}
+		        <br>
+		        Telefono {{$base->telefono}} - {{$base->email}} - {{$base->sitoweb}}
+		    </p>
+	    </div>
+	    
+	</header>
+	
     <div class="wrapper">
         @auth
             @include('areaseb::layouts.elements.top-nav')
@@ -37,6 +58,25 @@
 
         <div class="content-wrapper">
 
+        @php
+            $url = explode('/',Illuminate\Support\Facades\URL::current());
+            
+            if(isset($url[3])){
+            	$currenturl = $url[3];
+            	if($currenturl == 'events'){
+            		$currenturl = 'calendars';
+            	}
+            	if($currenturl == 'payments'){
+            		$currenturl = 'invoices';
+            	}
+            	if($url[3] == 'api' && $url[4] == 'companies'){
+            		$currenturl = 'companies';
+            	}
+            } else {
+            	$currenturl = '*';
+            }
+        @endphp
+        @if($user->can($currenturl.'.read') || !isset($url[3]))
             @yield('title')
 
             <section class="content">
@@ -44,6 +84,14 @@
                     @yield('content')
                 </div>
             </section>
+            @else
+            <section class="content">
+                <div class="container-fluid text-center pt-5" >
+                    <strong>Non hai i permessi necessari per accedere a questa sezione.</strong>
+                </div>
+            </section>
+           
+        @endif
 
         </div>
 
@@ -52,11 +100,7 @@
                 <b>Version</b> 3.0
             </div>
             <strong>Copyright &copy; 2020 - @if(date('Y') != '2020') {{date('Y')}} | @endif
-                @if(strpos(config('app.url'), 'crmbia.it') !== false)
-                    <a href="https://www.prima-posizione.it/">Imprenditori in azione</a>.
-                @else
-                    <a href="https://www.areaseb.it">Areaseb srl</a>.
-                @endif
+                <a href="https://www.areaseb.it">Areaseb srl</a>.
             </strong> Tutti i diritti riservati.
         </footer>
 

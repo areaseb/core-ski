@@ -29,6 +29,34 @@
                                         </td>
                                     </tr>
                                 @endforeach
+                                    <tr>
+                                        <td>Lista Sedi</td>
+                                        <td></td>
+                                        <td>
+                                            <a href="{{route('offices.index')}}" class="btn btn-warning btn-icon btn-sm"><i class="fa fa-edit"></i></a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Lista Alloggi</td>
+                                        <td></td>
+                                        <td>
+                                            <a href="{{route('housing.index')}}" class="btn btn-warning btn-icon btn-sm"><i class="fa fa-edit"></i></a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Lista Ritrovi</td>
+                                        <td></td>
+                                        <td>
+                                            <a href="{{route('hangout.index')}}" class="btn btn-warning btn-icon btn-sm"><i class="fa fa-edit"></i></a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Lista Segnaposto</td>
+                                        <td></td>
+                                        <td>
+                                            <a href="{{route('labels.index')}}" class="btn btn-warning btn-icon btn-sm"><i class="fa fa-edit"></i></a>
+                                        </td>
+                                    </tr>
                             </tbody>
                         </table>
                     </div>

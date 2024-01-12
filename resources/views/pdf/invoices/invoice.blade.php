@@ -1,33 +1,56 @@
 @extends('areaseb::pdf.invoices.layout')
 
+<div class="container header">
+	<div class="row" id="blue">
+	    <b>{{$base->rag_soc}}</b>
+	    <br>
+	    <p>
+	    {{$base->indirizzo}} - {{$base->cap}} {{$base->citta}} ({{$base->provincia}})
+	    <br>
+	    P.IVA / C.F.: {{$base->piva}} / {{$base->cod_fiscale}}
+	    <br>
+	    {{$base->banca}} - IBAN: {{$base->IBAN}}
+	    <br>
+	    Telefono {{$base->telefono}} - {{$base->email}} - {{$base->sitoweb}}</p>
+	</div>
+</div>
 
-<div class="container">
+<div class="container corpo">
     <div class="row">
         <div class="col-xs-4">
-            <img class="img-responsive" src="{{Areaseb\Core\Models\Setting::FatturaLogo()}}" style="max-width:96%;text-align: left; padding-top:30px;">
+            {{-- <img class="img-responsive" src="{{Areaseb\Core\Models\Setting::FatturaLogo()}}" style="max-width:96%;text-align: left; padding-top:30px;"> --}}
         </div>
         <div class="col-xs-4"></div>
         <div class="col-xs-4">
-            <br><br>
-            <p>Spett.<br><b>{{$invoice->company->rag_soc}}</b></p>
-            <p>{{$invoice->company->address}}<br>
-            {{$invoice->company->zip}} {{$invoice->company->city}},
-                @if($invoice->company->nation == 'IT')
+            <p>Spett.<br><b>{{$invoice->company != null ? $invoice->company->rag_soc : ($invoice->contact($invoice->contact_id)->nome.' '.$invoice->contact($invoice->contact_id)->cognome .' (Contatto)')}}</b></p>
+            <p>{{$invoice->company != null ? $invoice->company->address : $invoice->contact($invoice->contact_id)->indirizzo}}<br>
+                {{ $invoice->company != null ? $invoice->company->zip : $invoice->contact($invoice->contact_id)->cap}} {{ $invoice->company != null ? $invoice->company->city : $invoice->contact($invoice->contact_id)->citta}},
+                @if($invoice->company != null && $invoice->company->nation == 'IT')
                     ({{$invoice->company->city()->first()->sigla_provincia}})
                 @endif
              <br>
-            {{$invoice->company->nation}}</p>
+            {{ $invoice->company != null ? $invoice->company->nation : $invoice->contact($invoice->contact_id)->nazione }}</p>
         </div>
     </div>
-</div>
-
-<div class="container">
+    
 
     <div class="row mt-4">
         <div class="col-xs-3 p-1 pl-3 border border-bottom-0 border-right-0"><strong>{{$invoice->titolo}}</strong></div>
         <div class="col-xs-2 p-1 pl-3 border border-bottom-0 border-right-0"><strong>Data: {{$invoice->data->format('d/m/Y')}}</strong></div>
-        <div class="col-xs-4 p-1 pl-3 border border-bottom-0 border-right-0"><strong>P.IVA / C.F.: @if($invoice->company->private) {{$invoice->company->cf}} @else {{$invoice->company->piva}} @endif </strong></div>
-        <div class="col-xs-3 p-1 pl-3 border border-bottom-0"><strong>Codice SDI: {{$invoice->company->sdi}}</strong></div>
+        @if($invoice->company != null)
+        <div class="col-xs-4 p-1 pl-3 border border-bottom-0 border-right-0">
+            <strong>P.IVA / C.F.: @if($invoice->company->private) {{$invoice->company->cf}} @else {{$invoice->company->piva}} @endif </strong>
+        </div>
+        @else
+        <div class="col-xs-4 p-1 pl-3 border border-bottom-0 border-right-0">
+            <strong>P.IVA / C.F.: @if($invoice->contact($invoice->contact_id)->piva == null) {{$invoice->contact($invoice->contact_id)->cod_fiscale}} @else {{$invoice->contact($invoice->contact_id)->piva}} @endif </strong>
+        </div>
+        @endif
+        @if($invoice->company != null)
+            <div class="col-xs-3 p-1 pl-3 border border-bottom-0"><strong>Codice SDI: {{$invoice->company->sdi}}</strong></div>
+        @else
+            <div class="col-xs-3 p-1 pl-3 border border-bottom-0"><strong>Codice SDI: -</strong></div>
+        @endif
     </div>
 
     <div class="row">
@@ -35,7 +58,7 @@
         <div class="col-xs-7 p-1 pl-3 border"><strong>Tipo di pagamento: {{$invoice->tipo_pagamento}}</strong></div>
     </div>
 
-</div>
+
 
 @php
     $discount = 0;
@@ -45,10 +68,10 @@
     }
 @endphp
 
-<div class="container">
+
     <div class="row">
         <div style="overflow: hidden;">
-            <table class="table table-sm mt-3">
+            <table class="table table-sm mt-3" style="width: 99%;" align="center">
                 <thead class="mb-3">
                     <tr class="blue">
                         <th class="c30 pl-3">Descrizione</th>
@@ -69,7 +92,7 @@
                         <tr class="pt-5 pb-5 h50">
                             <td class="c30 pl-3 border-top-0 bl">
                                 <b>{{$item->product->nome}}</b><br>
-                                <span class="text-muted fsSmall">{{$item->descrizione}}</span>
+                                <span class="text-muted fsSmall">{{print_r(nl2br($item->descrizione))}}</span>
                             </td>
                             <td class="c10 border-top-0 blr fsSmaller">{{$item->qta}}</td>
                             <td class="c15 border-top-0 br fsSmaller">&euro; {{$item->importo_decimal}} </td>
@@ -97,19 +120,17 @@
             </table>
         </div>
     </div>
-</div>
-
-<div class="container">
+    
 
     <div class="row mt-4">
         <div class="col-xs-4 p-1 pl-3 border border-bottom-0 border-right-0"><strong>Imponibile:</strong> &euro; {{number_format($invoice->imponibile, 2, ',', '.')}}</div>
-        <div class="col-xs-5 p-1 pl-3 border border-bottom-0 border-right-0"><strong>Arrotondamento:</strong> € {{ number_format($invoice->rounding, 2, ',', '.') }}</div>
-        <div class="col-xs-3 p-1 pl-3 border border-bottom-0">
-            @if($invoice->spese)
-                &nbsp;
-            @else
-                <strong>Spese incasso:</strong> 0
-            @endif
+        <div class="col-xs-4 p-1 pl-3 border border-bottom-0 border-right-0"><strong>Arrotondamento:</strong> € {{ number_format($invoice->rounding, 2, ',', '.') }}</div>
+        <div class="col-xs-4 p-1 pl-3 border border-bottom-0">
+        	@if($invoice->ritenuta > 0)
+        		<strong>Ritenuta ({{$invoice->perc_ritenuta}}%):</strong> &euro; {{number_format($invoice->ritenuta, 2, ',', '.')}}
+        	@else
+        		<strong>No Ritenuta</strong>
+        	@endif        	
         </div>
     </div>
     <div class="row">
@@ -137,7 +158,7 @@
             <br><br><br>
         </div>
         <div class="col-xs-6 p-1 pl-3 border"><strong>Netto a pagare:</strong><br>
-            <h2 class="text-center" style="margin-top:22px; font-size:44px;"> {{$invoice->total_formatted}}</h2>
+            <h2 class="text-center" style="margin-top:29px; font-size:44px;"> {{$invoice->total_formatted}}</h2>
         </div>
     </div>
 
@@ -183,7 +204,7 @@
                 @endforeach
 
             @else
-                <strong>{{$invoice->data_scadenza->format('d/m/Y')}}: </strong>
+                <strong>{{$invoice->data_scadenza != null ? $invoice->data_scadenza->format('d/m/Y') : '-'}}: </strong>
 
                 @if($invoice->split_payment)
                     {{ $invoice->imponibile_formatted }}

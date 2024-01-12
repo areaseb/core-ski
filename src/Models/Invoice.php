@@ -14,6 +14,18 @@ class Invoice extends Primitive
         'rates' => 'array',
     ];
 
+	public static function query() {
+        $query = parent::query();
+        
+        if(!auth()->user()->hasRole('super')){
+        	$user_branch = auth()->user()->contact->branchContact()->branch_id;
+        	$query = $query->where('branch_id', $user_branch);
+        	return $query;
+        }		
+        
+		return $query;
+    }
+    
     public function dealEvent() {
         if(class_exists('Deals\App\Models\DealEvent'))
             return $this->morphOne(DealEvent::class, 'dealable');
@@ -45,31 +57,61 @@ class Invoice extends Primitive
         return $this->hasMany(InvoiceNotice::class);
     }
 
+    public function contact($contact_id)
+    {
+        return Contact::find($this->contact_id);
+    }
+
 
 // setter
     public function setDataAttribute($value)
     {
-        $this->attributes['data'] = is_null($value) ? null : Carbon::createFromFormat('d/m/Y', $value);
+    	if(strstr($value, '/')){
+    		$data = explode(' ', $value);
+    		list($g, $m, $a) = explode('/', $data[0]);
+    		$value = "$a-$m-$g";
+    	}
+        $this->attributes['data'] = is_null($value) ? null : date('Y-m-d', strtotime($value));	//Carbon::createFromFormat('d/m/Y', Carbon::parse($value)->format('d-m-Y'));
     }
 
     public function setDataRegistrazioneAttribute($value)
     {
-        $this->attributes['data_registrazione'] = is_null($value) ? null : Carbon::createFromFormat('d/m/Y', $value);
+    	if(strstr($value, '/')){
+    		$data = explode(' ', $value);
+    		list($g, $m, $a) = explode('/', $data[0]);
+    		$value = "$a-$m-$g";
+    	}
+        $this->attributes['data_registrazione'] = is_null($value) ? null : date('Y-m-d', strtotime($value));	//Carbon::createFromFormat('d/m/Y', Carbon::parse($value)->format('d-m-Y'));
     }
 
     public function setDdtDataDocAttribute($value)
     {
-        $this->attributes['ddt_data_doc'] = is_null($value) ? null : Carbon::createFromFormat('d/m/Y', $value);
+    	if(strstr($value, '/')){
+    		$data = explode(' ', $value);
+    		list($g, $m, $a) = explode('/', $data[0]);
+    		$value = "$a-$m-$g";
+    	}
+        $this->attributes['ddt_data_doc'] = is_null($value) ? null : date('Y-m-d', strtotime($value));	//Carbon::createFromFormat('d/m/Y', Carbon::parse($value)->format('d-m-Y'));
     }
 
     public function setPaDataDocAttribute($value)
     {
-        $this->attributes['pa_data_doc'] = is_null($value) ? null : Carbon::createFromFormat('d/m/Y', $value);
+    	if(strstr($value, '/')){
+    		$data = explode(' ', $value);
+    		list($g, $m, $a) = explode('/', $data[0]);
+    		$value = "$a-$m-$g";
+    	}
+        $this->attributes['pa_data_doc'] = is_null($value) ? null : date('Y-m-d', strtotime($value));	//Carbon::createFromFormat('d/m/Y', Carbon::parse($value)->format('d-m-Y'));
     }
 
     public function setDataSaldoAttribute($value)
     {
-        $this->attributes['data_saldo'] = is_null($value) ? null : Carbon::createFromFormat('d/m/Y', $value);
+    	if(strstr($value, '/')){
+    		$data = explode(' ', $value);
+    		list($g, $m, $a) = explode('/', $data[0]);
+    		$value = "$a-$m-$g";
+    	}
+        $this->attributes['data_saldo'] = is_null($value) ? null : date('Y-m-d', strtotime($value));	//Carbon::createFromFormat('d/m/Y', Carbon::parse($value)->format('d-m-Y'));
     }
 
     public function setPagamentoAttribute($value)
@@ -85,13 +127,28 @@ class Invoice extends Primitive
 
 //getter
 
+    public function getMaxNumber($type, $branch_id = null)
+    {
+    	if(!is_null($branch_id)){
+    		return self::where('tipo', $type)->where('branch_id', $branch_id)->where('aperta', 0)->whereYear('data', date("Y"))->orderBy('numero', 'DESC')->first()->numero + 1;
+    	} else {
+    		return self::where('tipo', $type)->where('branch_id', auth()->user()->contact->branchContact()->branch_id)->where('aperta', 0)->whereYear('data', date("Y"))->orderBy('numero', 'DESC')->first()->numero + 1;
+    	}
+        
+    }
+
     public function getPaymentStatusAttribute()
     {
         if($this->saldato)
         {
             return 0;
         }
-        return 100-round(($this->total - $this->payments()->sum('amount'))/$this->total*100) ;
+        if($this->total > 0){
+        	return 100-round(($this->total - $this->payments()->sum('amount'))/$this->total*100);
+        } else {
+        	return 0;
+        }
+        
     }
 
     public function getPaymentColorAttribute()
@@ -122,12 +179,18 @@ class Invoice extends Primitive
 
     public function getTitoloAttribute()
     {
-        return $this->tipo_formatted . " N." . $this->numero . " / " . $this->data->format('Y');
+        return $this->tipo_formatted . " N." . $this->numero . " / " . $this->branch_id. " / " .$this->data->format('Y');
     }
 
     public function getTotalAttribute()
     {
-        return $this->imponibile + $this->iva;
+    	if($this->bollo && $this->bollo_a == 'cliente'){
+			$imponibile = $this->imponibile;	// - $this->bollo;
+		} else {
+			$imponibile = $this->imponibile;
+		}
+		
+        return $imponibile + $this->iva - $this->ritenuta;	// + $this->bollo;
     }
 
     public function getTotalFormattedAttribute()
@@ -141,13 +204,18 @@ class Invoice extends Primitive
     }
 
     public function getImponibileFormattedAttribute()
-    {
-        return $this->fmt($this->imponibile);
+    {	
+    	if($this->bollo && $this->bollo_a == 'cliente'){
+    		return $this->fmt($this->imponibile);	// - $this->bollo
+    	} else {
+    		return $this->fmt($this->imponibile);
+    	}	
+        
     }
 
     public function getImponibileDecimalAttribute()
     {
-        return $this->decimal($this->imponibile);
+        return $this->decimal($this->imponibile);	// - $this->bollo
     }
 
     public function getSpeseFormattedAttribute()
@@ -174,7 +242,8 @@ class Invoice extends Primitive
     {
         if($this->imponibile)
         {
-            return round(($this->total/$this->imponibile)*100)-100 . "%";
+            return ($this->items()->sum('perc_iva')) / $this->items()->count() . '%';
+            //return round(($this->total/$this->imponibile)*100)-100 . "%";
         }
         return 0;
     }
@@ -182,7 +251,8 @@ class Invoice extends Primitive
     {
         if($this->imponibile)
         {
-            return round(($this->total/$this->imponibile)*100)-100;
+            return ($this->items()->sum('perc_iva')) / $this->items()->count();
+            //return round(($this->total/$this->imponibile)*100)-100;
         }
         return 0;
     }
@@ -193,7 +263,12 @@ class Invoice extends Primitive
         {
             return config('invoice.payment_types')['RBFM'];
         }
-        return config('invoice.payment_types')[$this->pagamento];
+        if(isset(config('invoice.payment_types')[$this->pagamento])){
+        	return config('invoice.payment_types')[$this->pagamento];
+        } else {
+        	return null;
+        }
+        
     }
 
     public function getTipoFormattedAttribute()
@@ -329,7 +404,14 @@ class Invoice extends Primitive
         {
             $first = 'FPA';
         }
-        return $this->company->rag_soc.' -|- '.$first.' '.$this->numero.'/'.$this->data->format('y');
+        return $this->company != null ? $this->company->rag_soc.' -|- '.$first.' '.$this->numero.'/'.$this->data->format('y') : '';
+
+    }
+
+    public function getBranchNameAttribute()
+    {
+        
+        return \Areaseb\Core\Models\Branch::where('id', $this->branch_id)->first()->nome;
 
     }
 
@@ -338,61 +420,61 @@ class Invoice extends Primitive
 
     public function scopeEntrate($query)
     {
-        $query = $query->where('tipo', '!=', 'A');
+        $query = $query->where('numero', '!=', '')->where('numero', '!=', 0)->whereNotNull('numero')->where('tipo', '!=', 'A')->where('aperta', 0);
     }
 
     public function scopeFatture($query)
     {
-        $query = $query->where('tipo', 'F');
+        $query = $query->where('numero', '!=', '')->where('numero', '!=', 0)->whereNotNull('numero')->where('tipo', 'F')->where('aperta', 0);
     }
 
     public function scopeRicevute($query)
     {
-        $query = $query->where('tipo', 'R');
+        $query = $query->where('numero', '!=', '')->where('numero', '!=', 0)->whereNotNull('numero')->where('tipo', 'R')->where('aperta', 0);
     }
 
     public function scopeAutofatture($query)
     {
-        $query = $query->where('tipo', 'U');
+        $query = $query->where('numero', '!=', '')->where('numero', '!=', 0)->whereNotNull('numero')->where('tipo', 'U')->where('aperta', 0);
     }
 
     public function scopeNotediaccredito($query)
     {
-        $query = $query->where('tipo', 'A');
+        $query = $query->where('numero', '!=', '')->where('numero', '!=', 0)->whereNotNull('numero')->where('tipo', 'A')->where('aperta', 0);
     }
 
     public function scopeTipo($query, $value)
     {
-        $query = $query->where('tipo', $value);
+        $query = $query->where('tipo', $value)->where('aperta', 0);
     }
 
     public function scopeAnno($query, $value)
     {
-        $query = $query->whereYear('data', $value);
+        $query = $query->whereYear('data', $value)->where('aperta', 0);
     }
 
     public function scopeMese($query, $value)
     {
         $anno = $value['year'];
         $mese = $value['month'];
-        $query = $query->whereYear('data', $anno)->whereMonth('data', $mese);
+        $query = $query->whereYear('data', $anno)->whereMonth('data', $mese)->where('aperta', 0);
     }
 
     public function scopeSaldate($query)
     {
-        $query = $query->where('saldato', true);
+        $query = $query->where('saldato', true)->where('aperta', 0);
     }
 
     public function scopeUnpaid($query)
     {
-        $query = $query->where('saldato', false);
+        $query = $query->where('saldato', false)->where('aperta', 0);
     }
 
     public function scopeConsegnate($query)
     {
         if(config('core.modules')['fe'])
         {
-            $query = $query->where('status', '!=', 2);
+            $query = $query->where('status', '!=', 2)->where('aperta', 0);
         }
         $query = $query;
     }
@@ -402,12 +484,39 @@ class Invoice extends Primitive
     {
         $query = self::with('company');
 
+		if($data->get('numero'))
+        {
+
+            if(!is_null($data->numero))
+            {
+                $query = $query->where('numero', $data->numero);
+            } else 
+            {
+            	$query = $query;
+            }
+
+        }
+        
+        if($data->get('tipo_pag'))
+        {
+            if(!is_null($data->tipo_pag))
+            {
+                $query = $query->where('tipo_saldo', $data->tipo_pag);
+            } else 
+            {
+            	$query = $query;
+            }
+
+        }
+        
         if($data->get('tipo'))
         {
 
-            if($data['tipo'] != 'FA')
+            if($data['tipo'] != 'F-A')
             {
                 $query = $query->tipo( $data['tipo'] );
+            } else {
+            	$query = $query->whereIn('tipo', ['F', 'A']);
             }
 
         }
@@ -424,16 +533,23 @@ class Invoice extends Primitive
             }
         }
 
-        if($data->has('anno'))
+        if($data->has('anno') && !is_null($data->anno))
         {
-            if(!is_null($data->anno))
-            {
-                $query = $query->whereYear('data', $data->anno);
-            }
-            else
-            {
-                $query = $query;
-            }
+        	$query = $query->whereYear('data', $data->anno);            
+        } 
+        elseif($data->has('anno') && is_null($data->anno)) 
+        {        	
+        	if(!is_null($data->range)) {
+        	
+	        	$range = explode(' - ', $data->range);
+	        	list($g, $m, $a) = explode("/", $range[0]);
+	        	
+	        	if($a == date('Y')){
+	        		$query = $query->whereYear('data', date('Y'));
+	        	} 
+	        }
+        } else {
+        	$query = $query->whereYear('data', date('Y'));
         }
 
         if($data->has('mese'))
@@ -448,6 +564,17 @@ class Invoice extends Primitive
             }
         }
 
+		if($data->has('contact'))
+        {
+            if(!is_null($data->contact))
+            {
+                $query = $query->where('contact_id', $data->contact);
+            }
+            else
+            {
+                $query = $query;
+            }
+        }
 
         if($data->has('company'))
         {
@@ -460,8 +587,20 @@ class Invoice extends Primitive
                 $query = $query;
             }
         }
+        
+        if($data->has('cc'))
+        {
+            if(!is_null($data->cc))
+            {
+                $query = $query->where('branch_id', $data->cc);
+            }
+            else
+            {
+                $query = $query;
+            }
+        }
 
-        if($data->get('range'))
+        if($data->get('range') && is_null($data->anno) && is_null($data->mese))
         {
             $range = explode(' - ', $data->range);
             $da = Carbon::createFromFormat('d/m/Y', $range[0])->format('Y-m-d');
@@ -490,7 +629,8 @@ class Invoice extends Primitive
             }
         }
 
-
+        $query = $query->where('aperta', 0);
+        
         if($data->get('sort'))
         {
             $arr = explode('|', $data->sort);
@@ -629,6 +769,7 @@ class Invoice extends Primitive
     {
         return self::where('data_scadenza', '>=', Carbon::today()->subDays($days))
             ->where('saldato', false)
+            ->where('aperta', 0)
             ->orderBy('data_scadenza', 'DESC')
             ->get();
     }

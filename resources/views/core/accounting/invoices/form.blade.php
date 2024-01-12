@@ -1,3 +1,7 @@
+@section('css')
+    <link rel="stylesheet" href="{{asset('plugins/summernote/summernote-bs4.css')}}">
+@stop
+
 @include('areaseb::core.accounting.invoices.form-components.intestazione')
 @include('areaseb::core.accounting.invoices.form-components.dettagli')
 @include('areaseb::core.accounting.invoices.form-components.corpo')
@@ -6,12 +10,15 @@
 <div class="col-md-6">
 
     @include('areaseb::core.accounting.invoices.form-components.extra-pa')
-    @include('areaseb::core.accounting.invoices.form-components.extra-ddt')
+    @include('areaseb::core.accounting.invoices.form-components.extra-ddt')    
     @include('areaseb::core.accounting.invoices.form-components.extra-estero')
-
+    
     <div class="card card-outline card-success">
         <div class="card-header">
             <h3 class="card-title">Voci inserite</h3>
+			@if(isset($invoice))
+            	<a href="#" class="btn btn-danger btn-block col-md-3" id="btnDelItems" style="float:right">Cancella tutte le voci</a>
+            @endif
         </div>
         <div class="card-body p-0">
             <table class="table table-sm table-striped voci">
@@ -28,6 +35,12 @@
                 </thead>
                 <tbody>
                 </tbody>
+                <tfoot>
+                	<tr>
+                		<td colspan="5"><b>Totale</b></td>
+                		<td colspan="2" class="tot_voci"></td>
+                	</tr>
+                </tfoot>
             </table>
         </div>
     </div>

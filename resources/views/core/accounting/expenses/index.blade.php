@@ -53,7 +53,7 @@
                                         @can('expenses.write')
                                             <td class="pl-3">
                                                 {!! Form::open(['method' => 'delete', 'url' => url('expenses').'/'.$expense->id, 'id' => "form-".$expense->id]) !!}
-                                                    <a href="<{{route('expenses.edit', $expense->id)}}" class="btn btn-warning btn-icon btn-sm"><i class="fa fa-edit"></i></a>
+                                                    <a href="{{route('expenses.edit', $expense->id)}}" class="btn btn-warning btn-icon btn-sm"><i class="fa fa-edit"></i></a>
                                                     @can('expenses.write')
                                                         <button type="submit" id="{{$expense->id}}" class="btn btn-danger btn-icon btn-sm delete"><i class="fa fa-trash"></i></button>
                                                     @endcan

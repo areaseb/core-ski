@@ -7,14 +7,14 @@
         <div class="dropdown-menu dropdown-menu-right" aria-labelledby="create">
             @can('invoices.write')
                 <a href="{{$invoice->url}}/edit" class="dropdown-item"><i class="fa fa-edit"></i> Modifica</a>
-                @if(config('core.modules')['fe'])
+                @if(config('core.modules')['fe'] && ($invoice->tipo == 'F' || $invoice->tipo == 'A'))
                     <a href="#" class="dropdown-item sendFe" data-id="{{$invoice->id}}"><i class="fa fa-cloud-upload-alt"></i> Invia FE</a>
                     {!!Form::open(['url' => url('api/invoices/'.$invoice->id.'/send-fe'), 'class' => 'd-none', 'id' => 'sendFe'.$invoice->id])!!}
                         <button type="submit"></button>
                     {!!Form::close()!!}
                 @endif
 
-                @if(Areaseb\Core\Models\Setting::feIsSet())
+                @if(Areaseb\Core\Models\Setting::feIsSet() && ($invoice->tipo == 'F' || $invoice->tipo == 'A'))
                     <a href="{{route('invoices.export', $invoice->id)}}" class="dropdown-item exportFe" data-id="{{$invoice->id}}"><i class="fas fa-file-invoice"></i> scarica Xml</a>
                     {!!Form::open(['url' => route('invoices.export', $invoice->id), 'class' => 'd-none', 'id' => 'exportFe'.$invoice->id, 'method'=>'GET'])!!}
                         <button type="submit"></button>
@@ -28,7 +28,7 @@
                 <a href="{{url('pdf/invoices/'.$invoice->id)}}" target="_blank" class="dropdown-item"><i class="fa fa-file-pdf"></i> PDF</a>
 
             @can('invoices.write')
-                @if($invoice->company->email)
+                @if($invoice->company != null && $invoice->company->email || $invoice->contact_id && $invoice->contact($invoice->id)->email)
                     <a href="#" class="dropdown-item sendToClient" data-id="{{$invoice->id}}" title="invia un'email al cliente con in allegato la fattura in pdf"><i class="fa fa-envelope"></i> Invia PDF</a>
                 @endif
                 <a href="#" data-id="{{$invoice->id}}" class="dropdown-item duplicate"><i class="far fa-clone"></i> Duplica</a>
@@ -76,7 +76,7 @@
                 <a href="{{url('pdf/invoices/'.$invoice->id)}}" target="_blank" class="dropdown-item"><i class="far fa-file-pdf"></i> scarica Pdf</a>
 
             @can('invoices.write')
-                @if($invoice->company->email)
+                @if($invoice->company != null && $invoice->company->email)
                     <a href="#" class="dropdown-item sendToClient" data-id="{{$invoice->id}}" title="invia un'email al cliente con in allegato la fattura in pdf"><i class="fa fa-envelope"></i> Invia</a>
                 @endif
                 <a href="#" data-id="{{$invoice->id}}" class="dropdown-item duplicate"><i class="far fa-clone"></i> Duplica</a>

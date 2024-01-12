@@ -28,6 +28,7 @@ class CreateCostsTable extends Migration
             $table->float('totale', 10,4)->default(0);
             $table->float('netto', 10,4)->default(0);
             $table->integer('iva')->default(0);
+            $table->integer('rit_acc')->default(0);
             $table->string('rate')->nullable();
             $table->boolean('saldato')->default(0);
             $table->timestamps();

@@ -59,6 +59,8 @@ return [
     'pwd_sdi' => 'Pwd Aruba',
     'domain_sdi' => 'Server Aruba',
     'marketing_cost' => 'Costi Marketing',
+	'token' => 'Token',
+	'company_id' => 'Company ID',
 
 
     'facebook' => 'Facebook',
@@ -113,6 +115,7 @@ return [
     'clients' => 'Clienti',
     'invoices' => 'Fatture',
     'events' => 'Calendario eventi',
+    'ora' => 'Planning',
 
     'it' => 'Testo IT',
     'it_title' => 'Titolo IT',

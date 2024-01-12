@@ -54,6 +54,10 @@
 
                             @include('areaseb::core.settings.components.Preventivi')
 
+						@elseif($setting->model == 'Fe')
+
+							@include('areaseb::core.settings.components.Fe')
+
                     @elseif($setting->model == 'SMTP')
                                 @php
                                     $c = 1;

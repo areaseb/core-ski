@@ -123,7 +123,11 @@
                                             <td>{{$cost->imponibile_formatted}}</td>
                                         @endif
 
-                                        <td>{{$cost->iva}}</td>
+                                        @if($cost->imponibile <= 0)
+                                            <td>0 %</td>
+                                        @else
+                                            <td>{!! number_format(round(intval($cost->iva) * 100 / $cost->imponibile, 0, PHP_ROUND_HALF_EVEN), 0, ',', '.') !!} %</td>
+                                        @endif
 
                                         @if($cost->totale < 0)
                                             <td class="bg-success disabled">{{$cost->totale_formatted}}</td>

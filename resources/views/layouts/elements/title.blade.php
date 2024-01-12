@@ -12,6 +12,9 @@
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-right">
                         <li class="breadcrumb-item"><a href="{{config('app.url')}}">Home</a></li>
+                        @if(strstr($title, 'Sedi') || strstr($title, 'Sede') || strstr($title, 'Alloggi') || strstr($title, 'Ritrovi') || strstr($title, 'Ritrovo') || strstr($title, 'Segnaposto'))
+                        	<li class="breadcrumb-item"><a href="{{config('app.url')}}settings">Settings</a></li>
+                        @endif
                         @yield('breadcrumbs')
                         <li class="breadcrumb-item active">{{$title}}</li>
                     </ol>

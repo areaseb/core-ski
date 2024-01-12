@@ -28,6 +28,7 @@
                                     </div>
                                 </div>
                             @endif
+                            <button class="btn btn-success" id="excel"><i class="fas fa-file-excel"></i> Excel</button> 
                             <a class="btn btn-primary" href="{{url('invoices/create')}}"><i class="fas fa-plus"></i> Crea Fattura</a>
                             @if(\Areaseb\Core\Models\Setting::emailFatture())
 
@@ -49,6 +50,7 @@
                         <table id="table" class="table table-sm table-font-xs table-bordered table-striped table-php">
                             <thead>
                                 <tr>
+                                    <th class="text-center" style="width:70px;">Sede</th>
                                     <th data-field="tipo" data-order="asc" style="width:70px;">Tipo <i class="fas fa-sort"></i></th>
                                     <th data-field="numero" data-order="asc" style="width:73px;">Numero <i class="fas fa-sort"></i></th>
                                     <th data-field="data" data-order="asc" style="width:77px;">Data <i class="fas fa-sort"></i></th>
@@ -68,37 +70,36 @@
                             <tbody>
                                 @foreach($invoices as $invoice)
                                     <tr id="row-{{$invoice->id}}">
+                                        <td class="text-center">{!!$invoice->branch_name!!}</td>
                                         <td class="text-center">{{$invoice->tipo_formatted}}</td>
                                         <td class="text-center">{{$invoice->numero}}</td>
                                         <td>{{$invoice->data->format('d/m/Y')}}</td>
-                                        <td>{{$invoice->company->rag_soc}}</td>
+                                        <td>@if($invoice->company_id || $invoice->contact_id) {{$invoice->company != null ? $invoice->company->rag_soc : ($invoice->contact($invoice->contact_id)->nome.' '.$invoice->contact($invoice->contact_id)->cognome .' (Contatto)')}} @else <b>IMPOSTARE UN CLIENTE</b> @endif</td>
                                         <td>{{$invoice->imponibile_formatted}}</td>
-                                        <td class="d-none d-xl-table-cell" class="text-center">{{$invoice->percent_iva}}</td>
+                                        <td class="d-none d-xl-table-cell" class="text-center">@if($invoice->iva > 0) +IVA @endif @if($invoice->ritenuta > 0) -RIT @endif</td>
                                         <td>{{$invoice->total_formatted}}</td>
-                                        <td>{{$invoice->data_scadenza->format('d/m/Y')}}</td>
-                                        <td class="d-none d-xl-table-cell">{{$invoice->tipo_pagamento}}</td>
+                                        <td>{{$invoice->data_scadenza != null ? $invoice->data_scadenza->format('d/m/Y') : ''}}</td>
+                                        <td class="d-none d-xl-table-cell">{{config('invoice.payment_modes')[$invoice->tipo_saldo]}}</td>
                                         <td class="text-center">
-                                            @if(($invoice->tipo == 'F') || ($invoice->tipo == 'A'))
-                                                @if($invoice->payment_status)
-                                                    <a href="{{route('invoices.payments.show', $invoice->id)}}" class="btn btn-default btn-sm" style="background-color:{{$invoice->payment_color}}; color:#000;">
-                                                        {{$invoice->payment_status}}%
-                                                    </a>
-                                                @else
-                                                    <a href="{{route('invoices.payments.show', $invoice->id)}}" class="btn btn-default">
-                                                        @if($invoice->saldato)
-                                                            <i class="fa text-success fa-check"></i>
-                                                        @else
-                                                            <i class="fa text-danger fa-times"></i>
-                                                        @endif
-                                                    </a>
-                                                @endif
+                                            @if($invoice->payment_status)
+                                                <a href="{{route('invoices.payments.show', $invoice->id)}}" class="btn btn-default btn-sm" style="background-color:{{$invoice->payment_color}}; color:#000;">
+                                                    {{$invoice->payment_status}}%
+                                                </a>
+                                            @else
+                                                <a href="{{route('invoices.payments.show', $invoice->id)}}" class="btn btn-default">
+                                                    @if($invoice->saldato)
+                                                        <i class="fa text-success fa-check"></i>
+                                                    @else
+                                                        <i class="fa text-danger fa-times"></i>
+                                                    @endif
+                                                </a>
                                             @endif
                                         </td>
                                         @if(config('core.modules')['fe'])
-                                            @if($invoice->tipo != 'P')
+                                            @if($invoice->tipo != 'P' && $invoice->tipo != 'R')
                                                 <td class="text-center">{!!$invoice->status_formatted!!}</td>
                                             @else
-                                                <td></td>
+                                                <td>&nbsp;</td>
                                             @endif
                                         @endif
                                         <td class="text-center">
@@ -119,6 +120,20 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="row">
+            @foreach($listBoxes as $item)
+                <div class="col-lg col">
+                    <div class="small-box bg-success">
+                        <div class="inner">
+                            <h3 class="mb-0">€ &nbsp;{{number_format($item->totale, 2, ',', '.')}}</h3>
+                            <p>{{$item->label}}</p>
+                        </div>
+                        <div class="icon"><i class="ion ion-cash"></i></div>
+                    </div>
+                </div>
+            @endforeach                             
     </div>
 @if(request()->input())
     @include('areaseb::core.accounting.invoices.components.stats-bottom-nograph')
@@ -152,6 +167,12 @@ $('#refresh').on('click', function(e){
     let currentUrl = window.location.href;
     let arr = currentUrl.split('?');
     window.location.href = arr[0];
+});
+
+$('#excel').on('click', function(e){
+    e.preventDefault();
+    let currentUrl = window.location.href.replace("invoices", "invoices/excel");
+    window.location.href = currentUrl;
 });
 
 $('a.notice').on('click', function(e){
@@ -262,6 +283,13 @@ $('a.sendToClient').on('click', function(e){
         }
     });
 });
+
+$('li.fatture_papa').addClass('menu-open');
+@if(request()->get('tipo') == 'F-A')
+	$('a.fatture').addClass('active');
+@elseif(request()->get('tipo') == 'R')
+	$('a.ricevute').addClass('active');
+@endif	
 
 </script>
 

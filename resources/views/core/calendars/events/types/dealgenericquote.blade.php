@@ -1,0 +1,9 @@
+@if($event->eventable->company)
+    {{$event->eventable->company->rag_soc}}
+@else
+    @if($event->eventable->numero)
+        {{$event->eventable->numero}}/{{$event->eventable->created_at->format('Y')}}
+    @else
+        {{$event->eventable->id}}
+    @endif
+@endif

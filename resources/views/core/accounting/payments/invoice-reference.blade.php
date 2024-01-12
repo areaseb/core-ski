@@ -2,7 +2,11 @@
     <div class="col">
         <div class="card card-outline card-primary collapsed-card">
             <div class="card-header">
-                <h3 class="card-title">Riferimento Fattura</h3>
+            	@if($invoice->company_id)
+                	<h3 class="card-title">Riferimento Fattura</h3>
+                @elseif($invoice->contact_id)
+                	<h3 class="card-title">Riferimento Ricevuta</h3>
+                @endif
                 <div class="card-tools">
                   <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button>
                 </div>
@@ -24,8 +28,8 @@
                         <tbody>
                             <tr>
                                 <td>{{$invoice->numero}}</td>
-                                <td>{{$invoice->data->format('d/m/Y')}}</td>
-                                <td>{{$invoice->data_scadenza->format('d/m/Y')}}</td>
+                                <td>@if($invoice->data){{$invoice->data->format('d/m/Y')}}@endif</td>
+                                <td>@if($invoice->data_scadenza){{$invoice->data_scadenza->format('d/m/Y')}}@endif</td>
                                 <td>{{$invoice->imponibile_formatted}}</td>
                                 <td>€ {{number_format($invoice->iva, 2, ',', '.')}}</td>
                                 <td>{{$invoice->total_formatted}}</td>

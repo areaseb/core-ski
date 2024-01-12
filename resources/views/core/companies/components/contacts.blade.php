@@ -5,23 +5,46 @@
                 <thead>
                     <tr>
                         <th>Nome</th>
+                        <th>Tipologia</th>
                         <th>Email</th>
                         <th>Cellulare</th>
+                        <th>Note</th>
+                        <th>Note segreteria</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($company->contacts as $contact)
-                        <tr>
-                            <td><i>{{$contact->pos}}</i> <b>{{$contact->fullname}}</b></td>
+                        <tr id="row-{{$contact->id}}">
+                            @php
+                                $isDisabile = Areaseb\Core\Models\ContactDisabled::where('contact_id', $contact->id)->count() > 0;
+                            @endphp
+                            @if($isDisabile)
+                                <td><i class="fa fa-wheelchair" aria-hidden="true"></i>&nbsp&nbsp<b>{{$contact->fullname}}</b></td>
+                            @else
+                                <td><b>{{$contact->fullname}}</b></td>
+                            @endif
+
+                            @if($contact->contact_type_id == 1)
+                            <td>Genitore</td>
+                            @endif
+                            @if($contact->contact_type_id == 2)
+                            <td>Figlio</td>
+                            @endif
+                            @if($contact->contact_type_id == 4)
+                            <td>Collaboratore</td>
+                            @endif
                             <td>{{$contact->email}}</td>
                             <td>{{$contact->cellulare}}</td>
+                            <td>{{$contact->note}}</td>
+                            <td>{{$contact->note_segreteria}}</td>
                             <td>
                                 {!! Form::open(['method' => 'delete', 'url' => $contact->url, 'id' => "form-".$contact->id]) !!}
-                                    <button type="submit" id="{{$contact->id}}" class="btn btn-danger btn-icon btn-sm delete"><i class="fa fa-trash"></i></button>
-                                
-                                <a class="btn btn-sm btn-primary" href="{{route('contacts.edit', $contact->id)}}"><i class="fas fa-edit"></i></a>
-                                <a class="btn btn-sm btn-warning" href="{{route('contacts.show', $contact->id)}}"><i class="fas fa-eye"></i></a>
+                                    <a class="btn btn-sm btn-primary" href="{{route('contacts.show', $contact->id)}}"><i class="fas fa-eye"></i></a>
+                                    <a class="btn btn-sm btn-warning" href="{{route('contacts.edit', $contact->id)}}"><i class="fas fa-edit"></i></a>
+                                    @if(auth()->user()->hasRole('super') || auth()->user()->can('contacts.delete'))
+                                        <button type="submit" id="{{$contact->id}}" class="btn btn-danger btn-icon btn-sm delete"><i class="fa fa-trash"></i></button>
+                                    @endif
                                 {!! Form::close() !!}
                             </td>
                         </tr>

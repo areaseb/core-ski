@@ -26,6 +26,7 @@ class CreateItemsTable extends Migration
             $table->integer('invoice_id')->unsigned()->index();
             $table->foreign('invoice_id')->references('id')->on('invoices');
             $table->integer('exemption_id')->unsigned()->nullable();
+            $table->integer('ora_id')->unsigned()->nullable();
         });
     }
 

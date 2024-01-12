@@ -3,7 +3,7 @@
 namespace Areaseb\Core\Http\Controllers;
 
 use App\User;
-use Areaseb\Core\Models\{Calendar, City, Client, Company, Contact, Country, Setting};
+use Areaseb\Core\Models\{Calendar, City, Client, Company, Contact, Country, Setting, TypeUser};
 use Areaseb\Core\Mail\NewAccount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -41,8 +41,14 @@ class UserController extends Controller
         $countries = Country::listCountries();
         $companies[''] = '';
         $companies += Company::pluck('rag_soc', 'id')->toArray();
+        $contacts[''] = '';
+        $Listcontacts = Contact::select('nome','cognome', 'id')->get();
+        foreach($Listcontacts as $item)
+         {
+            $contacts[$item->id] = $item->nome.' '.$item->cognome;
+         }
 
-        return view('areaseb::core.users.create', compact('roles', 'provinces', 'countries', 'companies'));
+        return view('areaseb::core.users.create', compact('roles', 'provinces', 'countries', 'companies','contacts'));
     }
 
     public function store()
@@ -60,6 +66,7 @@ class UserController extends Controller
         ]);
 
         $user = new User;
+        $user->name = request('nome') . ' ' . request('cognome');
         $user->email = request('email');
         $user->password = bcrypt(request('password'));
         $user->save();
@@ -67,7 +74,10 @@ class UserController extends Controller
 
         $user->assignRole(Role::find(request('role_id')));
 
-        $contact = Contact::createOrUpdate(new Contact, request()->input(), $user->id);
+        $data = request()->input();
+        $data['_method'] = 'POST';
+        Contact::where('id', $data['company_id'])->update(['user_id' => $user->id]);
+        //$contact = Contact::createOrUpdate(new Contact, $data, $user->id);
 
         Calendar::create(['user_id' => $user->id, 'token' => \Str::random(33)]);
 
@@ -137,7 +147,15 @@ class UserController extends Controller
         $companies[''] = '';
         $companies += Company::pluck('rag_soc', 'id')->toArray();
         $element = User::findOrFail($id);
-        return view('areaseb::core.users.edit', compact('roles', 'provinces', 'countries', 'companies', 'element'));
+
+        $contacts[''] = '';
+        $all_contacts = Contact::all();
+        foreach($all_contacts as $contact){
+        	$contacts += [$contact->id => $contact->fullname];
+        }
+        $user_contact = $element->contact;
+
+        return view('areaseb::core.users.edit', compact('roles', 'provinces', 'countries', 'companies', 'element','contacts', 'user_contact'));
     }
 
     public function update($id)
@@ -165,10 +183,17 @@ class UserController extends Controller
         $contact = $user->contact;
         if(is_null($contact))
         {
+        	$contact = Contact::where('id', request('company_id'))->first();
+        } 
+        if(is_null($contact)) 
+        {
             $contact = new Contact;
         }
 
-        Contact::createOrUpdate($user->contact, request()->input(), $user->id);
+        $data = request()->input();
+        $data['_method'] = 'PATCH';
+        Contact::where('id', $data['company_id'])->update(['user_id' => $user->id]);
+        //Contact::createOrUpdate($contact, $data, $user->id);
 
         if(Schema::hasTable('testimonials'))
         {
@@ -269,11 +294,13 @@ class UserController extends Controller
              $event->delete();
          }
 
-
-         foreach($user->notes as $note)
-         {
-             $note->delete();
-         }
+		 if($user->notes){
+		 	foreach($user->notes as $note)
+	         {
+	             $note->delete();
+	         }
+		 }
+         
 
 
          foreach($user->calendars as $calendar)

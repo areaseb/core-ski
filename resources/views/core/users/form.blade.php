@@ -82,17 +82,17 @@
 
     <div class="card card-outline card-success">
         <div class="card-header">
-            <h3 class="card-title">Azienda</h3>
+            <h3 class="card-title">Contatto</h3>
         </div>
         <div class="card-body">
 
             <div class="form-group">
-                <label>Associa ad un'azienda</label>
-                {!! Form::select('company_id', $companies, $element->contact->company_id ?? null, [
+                <label>Associa ad un Contatto</label>
+                {!! Form::select('company_id', $contacts, $user_contact->id ?? null, [
                     'class' => 'form-control select2bs4',
-                    'data-placeholder' => "Seleziona un'azienda",
+                    'data-placeholder' => "Seleziona un Contatto",
                     'style' => 'width:100%']) !!}
-                    <small><a href="{{url('companies/create')}}" target="_BLANK"><i class="fa fa-plus"></i> Crea una nuova azienda</a></small>
+                    <small><a href="{{url('contacts/create')}}" target="_BLANK"><i class="fa fa-plus"></i> Crea un nuovo Contatto</a></small>
             </div>
 
         </div>
@@ -136,6 +136,7 @@
                 {!! Form::text('cognome', $element->contact->cognome ?? null, ['class' => 'form-control', 'required']) !!}
                 @include('areaseb::components.add-invalid', ['element' => 'cognome'])
             </div>
+
             <div class="form-group">
                 <label>Nazione</label>
                 {!! Form::select('nazione', $countries, null, ['class' => 'custom-select', 'id' => 'country']) !!}
@@ -181,7 +182,9 @@
                     </div>
 
                 </div>
-            </div>
+                </div>
+
+            
 
         </div>
     </div>
@@ -208,6 +211,23 @@
 
 @section('scripts')
 <script>
+
+$('#div-piva').hide();
+$('#div-parent').hide();
+
+$('select[name="type_id"]').on('change', function(){
+    let type = $(this).val();
+    $('#div-piva').hide();
+    $('#div-parent').hide();
+    //sci club
+    if(type == 4){
+        $('#div-piva').show();
+    }
+    //figlio
+    if(type == 2){
+        $('#div-parent').show();
+    }
+});
 
 
 $('select[name="company_id"]').on('change', function(){

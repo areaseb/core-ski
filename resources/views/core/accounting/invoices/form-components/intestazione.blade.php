@@ -64,6 +64,28 @@
                     </div>
                 </div>
             </div>
+            
+            <div class="form-group row">
+                <label class="col-sm-4 col-form-label">Sede</label>
+                <div class="col-sm-8">
+                    @php                        
+                        if(isset($invoice)){
+                            $branch_id = $invoice->branch_id;
+                        }
+                        else
+                        {
+                        	if(auth()->user()->hasRole('super')){
+                        		$branch_id = null;
+                        	} else {
+                        		$branch_id = auth()->user()->contact->branchContact()->branch_id;   
+                        	}                                    
+                        }
+                        
+                    @endphp
+                      
+                    {!! Form::select('branch_id',$sedi, $branch_id, ['class' => 'form-control select-minimal', 'placeholder' => 'Seleziona Sede', 'required']) !!}
+                </div>
+            </div>
 
             <div class="form-group row">
                 <label class="col-sm-4 col-form-label">Data emissione*</label>
@@ -86,15 +108,27 @@
                    </div>
                 </div>
             </div>
-
-            <div class="form-group row">
-                <label class="col-sm-4 col-form-label">Azienda*</label>
-                <div class="col-sm-8">
-                    {!! Form::select('company_id',$companies,
-                        $selectedCompany ? $selectedCompany : null, ['class' => 'form-control select2bs4', 'data-placeholder' => 'Seleziona Azienda', 'required', 'data-fouc']) !!}
+            
+            <div class="row">
+                <div class="col-sm-12 col-xl-7">
+                    <div class="form-group row">
+                        <label class="col-sm-4 col-xl-7 col-form-label">Azienda</label>
+                        <div class="col-sm-8 col-xl-5">
+                            {!! Form::select('company_id',$companies,
+		                        $selectedCompany ? $selectedCompany : null, ['class' => 'form-control select2bs4', 'data-placeholder' => 'Seleziona Azienda',  'data-fouc']) !!}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12 col-xl-5">
+                    <div class="form-group row">
+                        <label class="col-sm-4 col-xl-5 col-form-label">Privato</label>
+                        <div class="col-sm-8 col-xl-7">
+                            {!! Form::select('contact_id',$contacts, null, ['class' => 'form-control select2bs4', 'data-placeholder' => 'Seleziona Privato']) !!}
+                        </div>
+                    </div>
                 </div>
             </div>
-
+			
             @if(!empty($deals) && class_exists("Deals\App\Models\Deal"))
                 <div class="form-group row">
                     <label class="col-sm-4 col-form-label">Trattativa</label>
@@ -132,7 +166,7 @@
 <script>
 
 $('input[name="numero"]').on('focusout', function(){
-    let tipo = $(this).find(':selected').val() ? $(this).find(':selected').val() : "F";
+    let tipo = $(this).find(':selected').val() ? $(this).find(':selected').val() : "R";
     let anno = $('select[name="anno"]').val() ? $('select[name="anno"]').val() : moment().format('YYYY');
 
     data = {
@@ -173,7 +207,7 @@ $('#data').datetimepicker({ format: 'DD/MM/YYYY' });
 $('#data_saldo').datetimepicker({ format: 'DD/MM/YYYY' });
 
 $('select[name="tipo"]').on('change', function(){
-    var tipo = $(this).find(':selected').val() ? $(this).find(':selected').val() : "F";
+    var tipo = $(this).find(':selected').val() ? $(this).find(':selected').val() : "R";
     var anno = $('select[name="anno"]').val() ? $('select[name="anno"]').val() : moment().format('YYYY');
     retriveNumero(tipo, anno);
     extraDDTFields(tipo);
@@ -235,7 +269,7 @@ const openModalCompanies = () => {
 //on change of anno retrive new numero
 $('select[name="anno"]').on('change', function(){
     var anno = $(this).find(':selected').val() ? $(this).find(':selected').val() : moment().format('YYYY');
-    var tipo = $('select[name="tipo"]').find(':selected').val() ? $('select[name="tipo"]').find(':selected').val() : "F";
+    var tipo = $('select[name="tipo"]').find(':selected').val() ? $('select[name="tipo"]').find(':selected').val() : "R";
     retriveNumero(tipo, anno);
 });
 
@@ -258,10 +292,34 @@ const retriveNumero = (tipo, anno) => {
     }
 
     $.get( url, function( data ) {
+    	if(data == null){
+    		data = 1;
+    	}
         $('input[name="numero"]').val(data);
         $('select[name="anno"]').val(anno);
     });
 };
+
+
+@if(isset($invoice))
+	$( "#btnDelItems" ).click(function() {
+	    var invoice_id = <?php echo $invoice->id; ?>;
+	    jQuery.ajax('/invoices/delete-items',
+	    {
+	        method: 'POST',
+	        data: {
+	            "_token": '{{ csrf_token() }}',
+	            "invoice_id":invoice_id
+	        },
+	        complete: function (resp) {
+	            var result = JSON.parse(resp.responseText);
+	            if(result.code){
+	                $('.voci').find("tr:gt(0)").remove();
+	            }     
+	        }
+	    });
+	})
+@endif
 
 
 </script>

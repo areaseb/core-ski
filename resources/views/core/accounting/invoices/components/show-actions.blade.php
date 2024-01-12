@@ -18,7 +18,7 @@
 
     @if($invoice->status == 0)
         <a href="{{url('invoices/'.$invoice->id.'/edit')}}" title="modifica fattura" class="btn bg-info btn-sm ml-1" ><i class="fa fa-edit"></i> Modifica</a>
-        <button class="btn bg-red btn-sm ml-1 removeMe" id="removeI-{{$invoice->id}}"><i class="fa fa-trash"></i> Elimina</button>
+        <button class="btn bg-red btn-sm ml-1 removeMe" id="removeI-{{$invoice->id}}" data-id="{{$invoice->id}}"><i class="fa fa-trash"></i> Elimina</button>
     @endif
 @endcan
 
@@ -68,5 +68,57 @@ $('button.sendToClient').on('click', function(){
         }
     });
 });
+
+$('button.removeMe').on('click', function(){
+	let token = "{{csrf_token()}}";
+	
+	$.ajax({
+	    url: baseURL+'invoices/'+$(this).attr('data-id'),
+	    method: 'DELETE',
+	    contentType: 'application/json',
+	    headers: {'X-CSRF-Token': token},
+	    success: function(result) {
+	        location.href = baseURL+"invoices";
+	    },
+	    error: function(request,msg,error) {
+	        new Noty({
+                text: response,
+                type: 'warning',
+                theme: 'bootstrap-v4',
+                timeout: 2500,
+                layout: 'topRight'
+            }).show();
+	    }
+	});
+	
+/*    $.post(baseURL+'invoices/'+$(this).attr('data-id'), {_token: token, method: 'DELETE'}).done(function( response ) {
+        console.log(response);
+        if(response == 'done')
+        {
+            location.href = baseURL+"invoices";
+        }
+        else if(response == 'error')
+        {
+            new Noty({
+                text: "Errore",
+                type: 'error',
+                theme: 'bootstrap-v4',
+                timeout: 2500,
+                layout: 'topRight'
+            }).show();
+        }
+        else
+        {
+            new Noty({
+                text: response,
+                type: 'warning',
+                theme: 'bootstrap-v4',
+                timeout: 2500,
+                layout: 'topRight'
+            }).show();
+        }
+    });*/
+});
+
 </script>
 @endpush

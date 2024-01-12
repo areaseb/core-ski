@@ -16,7 +16,7 @@
                                         <option value="{{$cal->id}}">{{$cal->nome}} </option>
                                     @endforeach
                                     @foreach(Areaseb\Core\Models\Calendar::allNoCurrentUser() as $cal)
-                                        <option value="{{$cal->id}}">{{$cal->nome}} {{$cal->user->fullname}}</option>
+										<option value="{{$cal->id}}">{{$cal->nome}} {{$cal->user->name}}</option>
                                     @endforeach
                                 </select>
                                 <div class="input-group-append">
@@ -51,7 +51,7 @@
                                                 <option value="{{$cal->id}}">{{$cal->nome}} </option>
                                             @endforeach
                                             @foreach(Areaseb\Core\Models\Calendar::allNoCurrentUser() as $cal)
-                                                <option value="{{$cal->id}}">{{$cal->nome}} {{$cal->user->fullname}}</option>
+												<option value="{{$cal->id}}">{{$cal->nome}} {{$cal->user->name}}</option>
                                             @endforeach
                                         </select>
                                         <div class="input-group-append">
@@ -66,7 +66,7 @@
                                         @if($c->id != $calendar->id)
                                             <a class="btn btn-secondary m-1" href="{{$c->id}}"><i class="fa fa-eye"></i>
                                                 @if($c->nome == 'global')
-                                                    {{$c->user->fullname}}
+													{{$c->user->name}}
                                                 @else
                                                     {{$c->nome}}
                                                 @endif

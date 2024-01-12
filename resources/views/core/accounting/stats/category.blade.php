@@ -21,15 +21,32 @@
                     <h3 class="card-title">Fatturato & totali</h3>
 
                     <div class="card-tools">
-                        {!!Form::open(['method' => 'GET', 'style' => 'width:160px;'])!!}
-                            {!!Form::select('year', [
-                                'tutti' => 'Totale',
-                                date('Y') => date('Y'),
-                                date('Y') - 1 => date('Y') - 1,
-                                date('Y') - 2 => date('Y') - 2,
-                                date('Y') - 3 => date('Y') - 3,
-                            ], [request('year')], [ 'class'=> 'form-control form-control-sm selectYear'])!!}
-                        {!!Form::close()!!}
+                        <div class="row">
+                        	<div class="col-md-3">
+                        		{!!Form::open(['method' => 'GET', 'style' => 'display: inline'])!!}
+                        		Anno
+	                            {!!Form::select('year', [
+	                                'tutti' => 'Totale',
+	                                date('Y') => date('Y')." - ".date('Y') + 1,
+	                                date('Y') - 1 => (date('Y') - 1)." - ".date('Y'),
+	                                date('Y') - 2 => (date('Y') - 2)." - ".(date('Y') - 1),
+	                                date('Y') - 3 => (date('Y') - 3)." - ".(date('Y') - 2),
+	                            ], [request('year')], [ 'class'=> 'form-control form-control-sm selectYear'])!!}
+                            </div>
+                            <div class="col-md-3">
+	                            Da <input type="date" name="data_in" value="{{request()->get('data_in')}}" class="form-control" id="data_in">
+	                        </div>
+	                        <div class="col-md-3">    
+	                            A <input type="date" name="data_out" value="{{request()->get('data_out')}}" class="form-control" id="data_out">
+	                        </div>
+	                        <div class="col-md-3">    
+	                            <br><button type="submit" class="btn btn-warning btn-lg" id="submitForm"><i class="fa fa-search"></i></button> 
+	                            {!!Form::close()!!}
+	                            @if(request()->get('data_in') || request()->get('data_out'))
+	                            	<a href="@if(date('m') >= 6) {{url('stats/categorie/'.$category->id.'?year='.date('Y'))}} @else {{url('stats/categorie/'.$category->id.'?year='.(date('Y')-1))}} @endif"><button type="submit" class="btn btn-secondary btn-lg" id="submitForm"><i class="fa fa-redo"></i></button></a>
+	                            @endif
+	                        </div>
+                        </div>
                     </div>
 
                 </div>

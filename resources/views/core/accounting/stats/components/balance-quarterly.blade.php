@@ -67,7 +67,7 @@
     <script>
 
     var chartData = {
-      labels  : ['{{date('Y')-4}}', '{{date('Y')-3}}', '{{date('Y')-2}}', '{{date('Y')-1}}'],
+      labels  : ['{{date('Y')-3}}', '{{date('Y')-2}}', '{{date('Y')-1}}', '{{date('Y')}}'],
       datasets: [
         {
           label               : '1st',

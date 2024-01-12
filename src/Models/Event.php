@@ -89,8 +89,33 @@ class Event extends Primitive
     {
         foreach (self::all() as $calendar)
         {
-            $contents = $calendar->header;
-$description = (strstr($event->summary, PHP_EOL)) ? '' : $event->summary;
+            $contents = "BEGIN:VCALENDAR\r
+PRODID:-//".config('app.name')."//IT\r
+VERSION:2.0\r
+CALSCALE:GREGORIAN\r
+X-WR-CALNAME:calendario_".$ics_name."\r
+X-WR-TIMEZONE:Europe/Rome\r
+BEGIN:VTIMEZONE\r
+TZID:Europe/Rome\r
+X-LIC-LOCATION:Europe/Rome\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:+0100\r
+TZOFFSETTO:+0200\r
+TZNAME:CEST\r
+DTSTART:19700329T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:+0200\r
+TZOFFSETTO:+0100\r
+TZNAME:CET\r
+DTSTART:19701025T030000\r
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU\r
+END:STANDARD\r
+END:VTIMEZONE\r";
+
+				//$description = (strstr($event->summary, PHP_EOL)) ? '' : $event->summary;
+
                 $singleEvent =
 "\r\nBEGIN:VEVENT\r
 DTSTART:".$event->starts_at->format('Ymd\THis')."\r
@@ -98,7 +123,7 @@ DTEND:".$event->ends_at->format('Ymd\THis')."\r
 DTSTAMP:".Carbon::now()->format('Ymd\THis')."\r
 UID:".uniqid()."\r
 CREATED:".$event->created_at->format('Ymd\THis')."\r
-DESCRIPTION:".$description."\r
+DESCRIPTION:".$event->summary."\r
 LAST-MODIFIED:".$event->updated_at->format('Ymd\THis')."\r
 LOCATION:".$event->location."\r
 SEQUENCE:1\r
@@ -107,11 +132,11 @@ SUMMARY:".$event->title."\r
 TRANSP:OPAQUE\r
 BEGIN:VALARM\r
 ACTION:DISPLAY\r
-DESCRIPTION:This is an event reminder\r
 TRIGGER:-PT10M\r
 END:VALARM\r
 END:VEVENT\r";
-$contents .= $singleEvent;
+
+			$contents .= $singleEvent;
 
             $contents .= "\r\nEND:VCALENDAR";
             
@@ -139,13 +164,15 @@ $contents .= $singleEvent;
         if($request->contact_id)
         {
             $event->contacts()->attach($request->contact_id);
-        }
-        if($request->user_id)
-        {
-            $event->users()->attach($request->user_id);
+                        
+            $settingSMTP = Setting::smtp(0);
+            
+            config()->set('mail.host', $settingSMTP['MAIL_HOST']);
+            config()->set('mail.port', $settingSMTP['MAIL_PORT']);
+            config()->set('mail.encryption', $settingSMTP['MAIL_ENCRYPTION']);
+            config()->set('mail.username', $settingSMTP['MAIL_USERNAME']);
+            config()->set('mail.password', $settingSMTP['MAIL_PASSWORD']);
 
-            $dsn = 'smtp://'.Setting::smtp(0)['MAIL_USERNAME'].':'.Setting::smtp(0)['MAIL_PASSWORD'].'@'.Setting::smtp(0)['MAIL_HOST'].':'.Setting::smtp(0)['MAIL_PORT'];
-            Mail::mailer($dsn);
 
             $datetime_evento = explode(" ",$event->starts_at);
             $date_evento = explode("-",$datetime_evento[0]);
@@ -156,7 +183,155 @@ $contents .= $singleEvent;
             $contatto_mitt = User::where('id', auth()->user()->id)->with('contact')->get()[0]->contact;
             $mittente = User::where('id', auth()->user()->id)->first()->getFullnameAttribute();
             //->with('contact')->get()[0]->contact;
-            $companyName = Company::where('id', $contatto_mitt->id)->first()->rag_soc;
+            $companyName = Company::where('id', $contatto_mitt->company_id)->first()->rag_soc;
+            //dd($companyName);
+                
+            if(isset($request->invioEmail)){
+            	
+            	$ics_name = str_replace(" ","_",strtolower($mittente)).'_global.ics';
+
+            	self::createICS($event, $ics_name);
+            	
+                    $destinatario = Contact::where('id', $request->contact_id)->first();
+                    $destinatario_fullname = $destinatario->fullname;
+                    $data = array(
+                        'mittente' => $mittente,
+                        'descrizione' => $event->title,
+                        "data" => $data_evento,
+                        'ora' => $ora_evento,
+                        'luogo' => $event->location,
+                        'destinatario' => $destinatario_fullname,
+                        'email' => $destinatario->email,
+                    	'email_from' => $contatto_mitt->email,
+                        'azienda' => $companyName,
+                        "file" => storage_path('app/public/calendars/'.$ics_name),
+                        "name" => $ics_name         
+                    );
+
+
+                    //DEFINISCO IL MAILER IN BASE ALLA CONFIGURAZIONE SMTP SCELTA
+                    Mail::send('areaseb::emails.events.new-event',$data, function ($message) use ($data)
+                    {
+                        $message->to($data['email'])
+                            ->subject('Nuovo evento '.config('app.name'))
+                            ->from($data['email_from'])
+                            ->attach($data['file'], [
+                                'as' => $data['name'],
+                                'mime' => 'text/calendar',
+                            ]);
+                    });
+            }
+            
+        }
+        
+        if(isset($request->user_id))
+        {
+            $event->users()->attach($request->user_id);
+
+            // vecchia gestione 
+            //$dsn = 'smtp://'.Setting::smtp(0)['MAIL_USERNAME'].':'.Setting::smtp(0)['MAIL_PASSWORD'].'@'.Setting::smtp(0)['MAIL_HOST'].':'.Setting::smtp(0)['MAIL_PORT'];
+            //Mail::mailer($dsn);
+
+            $settingSMTP = Setting::smtp(0);
+            
+            config()->set('mail.host', $settingSMTP['MAIL_HOST']);
+            config()->set('mail.port', $settingSMTP['MAIL_PORT']);
+            config()->set('mail.encryption', $settingSMTP['MAIL_ENCRYPTION']);
+            config()->set('mail.username', $settingSMTP['MAIL_USERNAME']);
+            config()->set('mail.password', $settingSMTP['MAIL_PASSWORD']);
+
+
+            $datetime_evento = explode(" ",$event->starts_at);
+            $date_evento = explode("-",$datetime_evento[0]);
+            $data_evento = $date_evento[2].'/'.$date_evento[1].'/'.$date_evento[0];
+            $ora_evento = substr($datetime_evento[1],0,5);
+
+
+            $contatto_mitt = User::where('id', auth()->user()->id)->with('contact')->get()[0]->contact;
+            $mittente = User::where('id', auth()->user()->id)->first()->getFullnameAttribute();
+            //->with('contact')->get()[0]->contact;
+            $companyName = Company::where('id', $contatto_mitt->company_id)->first()->rag_soc;
+            //dd($companyName);
+
+            foreach($request->user_id as $uid)
+            {
+                $new_event = $event->replicate();
+                $new_event->user_id = $uid;
+                $new_event->parent_event_id = $event->id;
+                $new_event->calendar_id = User::find($uid)->calendars()->first()->id;
+                $new_event->backgroundColor = '#FC8516';
+                $new_event->save();
+
+                Notification::create([
+                    'name' => $event->title,
+                    'body' => $event->summary,
+                    'notificationable_id' => $event->id,
+                    'notificationable_type' => get_class($event),
+                    'created_at' => $event->starts_at,
+                    'user_id' => $uid
+                ]);
+
+
+                
+                if(isset($request->invioEmail)){
+                	
+                	$ics_name = str_replace(" ","_",strtolower($mittente)).'_global.ics';
+
+                	self::createICS($event, $ics_name);
+                	
+                        $destinatario = User::where('id', $uid)->first();
+                        $destinatario_fullname = $destinatario->getFullnameAttribute();
+                        $data = array(
+                            'mittente' => $mittente,
+                            'descrizione' => $event->title,
+                            "data" => $data_evento,
+                            'ora' => $ora_evento,
+                            'luogo' => $event->location,
+                            'destinatario' => $destinatario_fullname,
+                            'email' => $destinatario->email,
+                        	'email_from' => $contatto_mitt->email,
+                            'azienda' => $companyName,
+	                        "file" => storage_path('app/public/calendars/'.$ics_name),
+	                        "name" => $ics_name         
+                        );
+
+
+                        //DEFINISCO IL MAILER IN BASE ALLA CONFIGURAZIONE SMTP SCELTA
+                        Mail::send('areaseb::emails.events.new-event',$data, function ($message) use ($data)
+                        {
+                            $message->to($data['email'])
+                                ->subject('Nuovo evento '.config('app.name'))
+                                ->from($data['email_from'])
+                                ->attach($data['file'], [
+	                                'as' => $data['name'],
+	                                'mime' => 'text/calendar',
+	                            ]);
+                        });
+                }
+            }            
+        }
+        
+        if(isset($request->emails) && isset($request->invioEmail))
+        {
+        	$settingSMTP = Setting::smtp(0);
+            
+            config()->set('mail.host', $settingSMTP['MAIL_HOST']);
+            config()->set('mail.port', $settingSMTP['MAIL_PORT']);
+            config()->set('mail.encryption', $settingSMTP['MAIL_ENCRYPTION']);
+            config()->set('mail.username', $settingSMTP['MAIL_USERNAME']);
+            config()->set('mail.password', $settingSMTP['MAIL_PASSWORD']);
+
+
+            $datetime_evento = explode(" ",$event->starts_at);
+            $date_evento = explode("-",$datetime_evento[0]);
+            $data_evento = $date_evento[2].'/'.$date_evento[1].'/'.$date_evento[0];
+            $ora_evento = substr($datetime_evento[1],0,5);
+
+
+            $contatto_mitt = User::where('id', auth()->user()->id)->with('contact')->get()[0]->contact;
+            $mittente = User::where('id', auth()->user()->id)->first()->getFullnameAttribute();
+            //->with('contact')->get()[0]->contact;
+            $companyName = Company::where('id', $contatto_mitt->company_id)->first()->rag_soc;
             //dd($companyName);
 
 
@@ -179,6 +354,7 @@ $contents .= $singleEvent;
                         'luogo' => $event->location,
                         'mittente' => $mittente,
                         'email' =>  $email,
+                        'email_from' => $contatto_mitt->email,
                         'azienda' => $companyName,
                         "file" => storage_path('app/public/calendars/'.$ics_name),
                         "name" => $ics_name                    
@@ -188,7 +364,7 @@ $contents .= $singleEvent;
                     {
                         $message->to($data['email'])
                             ->subject('Nuovo evento '.config('app.name'))
-                            ->from(Setting::smtp(0)['MAIL_FROM_ADDRESS'])
+                            ->from($data['email_from'])
                             ->attach($data['file'], [
                                 'as' => $data['name'],
                                 'mime' => 'text/calendar',
@@ -197,53 +373,8 @@ $contents .= $singleEvent;
                 }
 
             }
-
-
-            foreach($request->user_id as $uid)
-            {
-                $new_event = $event->replicate();
-                $new_event->user_id = $uid;
-                $new_event->parent_event_id = $event->id;
-                $new_event->calendar_id = User::find($uid)->calendars()->first()->id;
-                $new_event->save();
-
-                Notification::create([
-                    'name' => $event->title,
-                    'body' => $event->summary,
-                    'notificationable_id' => $event->id,
-                    'notificationable_type' => get_class($event),
-                    'created_at' => $event->starts_at,
-                    'user_id' => $uid
-                ]);
-
-
-                
-                if(isset($request->invioEmail)){
-                        $destinatario = User::where('id', $uid)->first();
-                        $destinatario_fullname = $destinatario->getFullnameAttribute();
-                        $data = array(
-                            'mittente' => $mittente,
-                            'descrizione' => $event->title,
-                            "data" => $data_evento,
-                            'ora' => $ora_evento,
-                            'luogo' => $event->location,
-                            'destinatario' => $destinatario_fullname,
-                            'email' => $destinatario->email,
-                            'azienda' => $companyName        
-                        );
-
-
-                        //DEFINISCO IL MAILER IN BASE ALLA CONFIGURAZIONE SMTP SCELTA
-                        Mail::send('areaseb::emails.events.new-event',$data, function ($message) use ($data)
-                        {
-                            $message->to($data['email'])
-                                ->subject('Nuovo evento '.config('app.name'));
-                            $message->from(Setting::smtp(0)['MAIL_FROM_ADDRESS']);
-                        });
-                }
-            }
-        }
-
+		}
+		
         $company_id = implode(" ", $request->company_id);
         if($company_id != "")
         {

@@ -3,7 +3,7 @@
 namespace Areaseb\Core\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Areaseb\Core\Models\{Category, Company, Product, Setting};
+use Areaseb\Core\Models\{Category, Company, Product, Setting, Exemption};
 use Illuminate\Support\Facades\Schema;
 
 class ProductController extends Controller
@@ -48,6 +48,7 @@ class ProductController extends Controller
     public function create()
     {
         $categorie = Category::categoryOf('Product')->pluck('nome', 'id')->toArray();
+        
         $products = [];$select = [];
         foreach(Product::select('codice', 'nome', 'id')->get() as $p)
         {
@@ -59,9 +60,15 @@ class ProductController extends Controller
             $products[$p->id] = $text;
             $select[] = ['text' => $text, 'id' => $p->id];
         }
+        
+        $exemptions = Exemption::all();
+        $exemption_list = ['' => ''];
+        foreach($exemptions as $exe){
+        	$exemption_list[$exe->id] = $exe->codice . ' - ' . $exe->nome;
+        }
 
         $selectedCategories[] = Category::where('nome', 'Da Categorizzare')->first()->id;
-        return view('areaseb::core.accounting.products.create', compact('categorie', 'selectedCategories', 'products', 'select'));
+        return view('areaseb::core.accounting.products.create', compact('categorie', 'selectedCategories', 'products', 'select', 'exemption_list'));
     }
 
     /**
@@ -100,6 +107,7 @@ class ProductController extends Controller
             'periodo' => $request->periodo,
             'children' => $inputs,
             'perc_iva' => $request->perc_iva,
+            'exemption_id' => $request->exemption_id
         ]);
 
         if(Schema::hasColumn('products', 'perc_agente'))
@@ -174,8 +182,14 @@ class ProductController extends Controller
              $products[$p->id] = $text;
              $select[] = ['text' => $text, 'id' => $p->id];
          }
+         
+         $exemptions = Exemption::all();
+        $exemption_list = ['' => ''];
+        foreach($exemptions as $exe){
+        	$exemption_list[$exe->id] = $exe->codice . ' - ' . $exe->nome;
+        }
 
-         return view('areaseb::core.accounting.products.edit', compact('categorie', 'product', 'selectedCategories', 'products', 'select'));
+         return view('areaseb::core.accounting.products.edit', compact('categorie', 'product', 'selectedCategories', 'products', 'select', 'exemption_list'));
      }
 
     /**
@@ -227,7 +241,8 @@ class ProductController extends Controller
             'costo' => $request->costo,
             'periodo' => $request->periodo,
             'children' => $inputs,
-            'perc_iva' => $request->perc_iva
+            'perc_iva' => $request->perc_iva,
+            'exemption_id' => $request->exemption_id
         ]);
 
         if(Schema::hasColumn('products', 'perc_agente'))
@@ -310,6 +325,7 @@ class ProductController extends Controller
             'periodo' => $product->periodo,
             'children' => $product->children,
             'perc_iva' => $product->perc_iva,
+            'exemption_id' => $product->exemption_id,
             'created_at' => $product->created_at,
             'updated_at' => $product->updated_at
         ];

@@ -8,7 +8,7 @@ use \DB;
 
 class Stat
 {
-
+    
     public static function TotaleQueryInsoluti($query = null)
     {
         $imponibile = self::ImponibileQuery((clone $query), true);
@@ -28,16 +28,80 @@ class Stat
     }
 
 
+    public static function TotaleQueryBoxes($data)
+    {
+        $arr_id_invoice = [];
+        $arr_data = [];
+
+        foreach ($data->get() as $d) {
+            array_push($arr_id_invoice, $d->id);
+        }
+        
+        foreach (array_keys(config('invoice.payment_modes')) as $pt) {
+                if($pt != ''){
+
+/*                    $item = Invoice::select(\DB::raw('SUM(imponibile) as imponibile'), \DB::raw('SUM(ritenuta) as ritenuta'))
+                    ->whereIn("id", $arr_id_invoice)
+                    ->where("tipo_saldo", $pt)
+                    ->where('numero', '<>', '')
+                    ->where('numero', '<>', 0)
+                    ->whereNotNull('numero')
+                    ->first();
+                    //dd($item);
+                    $totale = $item->imponibile - $item->ritenuta;	*/
+
+                    
+                    $totale = (clone $data)
+		                    ->whereIn("id", $arr_id_invoice)
+		                    ->where("tipo_saldo", $pt)
+		                    ->entrate()
+		                    ->sum('imponibile') 
+		                    - 
+		                    (clone $data)
+		                    ->whereIn("id", $arr_id_invoice)
+		                    ->where("tipo_saldo", $pt)
+		                    ->entrate()
+		                    ->sum('ritenuta');
+                    
+                    $totale -= abs((clone $data)
+		                    ->whereIn("id", $arr_id_invoice)
+		                    ->where("tipo_saldo", $pt)
+		                    ->notediaccredito()
+		                    ->sum('imponibile')) 
+		                    - 
+		                    abs((clone $data)
+		                    ->whereIn("id", $arr_id_invoice)
+		                    ->where("tipo_saldo", $pt)
+		                    ->notediaccredito()
+		                    ->sum('ritenuta'));
+		                    
+		        	
+                    $record = (object) [
+                        'label' => config('invoice.payment_modes')[$pt],
+                        'totale' => $totale,
+                    ];
+                    array_push($arr_data, $record);
+                    
+                }
+                
+        }
+
+
+
+        return $arr_data;
+    }
+
+
     public static function ImponibileClean($anno = null)
     {
         if(is_null($anno))
         {
-            $sum = Invoice::anno(date('Y'))->entrate()->sum('imponibile');
-            $sum -= abs(Invoice::anno(date('Y'))->notediaccredito()->sum('imponibile'));
+            $sum = Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->entrate()->sum('imponibile') - Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->entrate()->sum('ritenuta');
+            $sum -= abs(Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->notediaccredito()->sum('imponibile') - Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->notediaccredito()->sum('ritenuta'));
             return $sum;
         }
 
-        $imponibile = Invoice::anno($anno)->entrate()->sum('imponibile') - abs(Invoice::anno($anno)->notediaccredito()->sum('imponibile')) ;
+        $imponibile = Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->entrate()->sum('imponibile') - Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->entrate()->sum('ritenuta') - abs(Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->notediaccredito()->sum('imponibile') - Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->notediaccredito()->sum('ritenuta')) ;
 
         return $imponibile;
     }
@@ -54,15 +118,16 @@ class Stat
     {
         if(is_null($unpaid))
         {
-            $sum = (clone $query)->entrate()->sum('imponibile');
-            $sum -= abs((clone $query)->notediaccredito()->sum('imponibile'));
+            $sum = (clone $query)->entrate()->sum('imponibile') - (clone $query)->entrate()->sum('ritenuta');
+            $sum -= abs((clone $query)->notediaccredito()->sum('imponibile')) - abs((clone $query)->notediaccredito()->sum('ritenuta'));
             // $sum += (clone $query)->unpaid()->with('payments')->get()->sum(function ($invoice) {
             //         return $invoice->payments->sum('amount');
             //     });
+            
             return $sum;
         }
 
-        return $query->entrate()->sum('imponibile');
+        return $query->entrate()->sum('imponibile') - $query->entrate()->sum('ritenuta');
 
     }
 
@@ -90,15 +155,15 @@ class Stat
         if(is_null($anno))
         {
             $imposte = Cache::remember('imposte', 120, function () {
-                $sum = Invoice::anno(date('Y'))->entrate()->sum('iva');
-                $sum -= abs(Invoice::anno(date('Y'))->notediaccredito()->sum('iva'));
+                $sum = Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->entrate()->sum('iva');
+                $sum -= abs(Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->notediaccredito()->sum('iva'));
                 return Primitive::NF( $sum );
             });
         }
         else
         {
-            $sum = Invoice::anno($anno)->entrate()->sum('iva');
-            $sum -= abs(Invoice::anno($anno)->notediaccredito()->sum('iva'));
+            $sum = Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->entrate()->sum('iva');
+            $sum -= abs(Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->notediaccredito()->sum('iva'));
             $imposte = Primitive::NF( $sum );
         }
 
@@ -107,9 +172,9 @@ class Stat
 
     public static function ImposteBilancio($anno)
     {
-        $sum = Invoice::anno($anno)->entrate()->sum('iva');
-        $sum -= abs(Invoice::anno($anno)->notediaccredito()->sum('iva'));
-        $ivaCosti = Cost::anno($anno)->sum('totale') - Cost::anno($anno)->sum('imponibile');
+        $sum = Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->entrate()->sum('iva');
+        $sum -= abs(Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->notediaccredito()->sum('iva'));
+        $ivaCosti = Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum('totale') - Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum('imponibile');
         return Primitive::NF( $sum - $ivaCosti);
     }
 
@@ -118,21 +183,21 @@ class Stat
         if(is_null($year))
         {
             $imponibile = Cache::remember('imponibile', 120, function () {
-                $sum = Invoice::anno(date('Y'))->entrate()->sum('imponibile');
+                $sum = Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->entrate()->sum('imponibile') - Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->entrate()->sum('ritenuta');
                 // $sum += Invoice::anno(date('Y'))->unpaid()->with('payments')->get()->sum(function ($invoice) {
                 //                 return $invoice->payments->sum('amount');
                 //             });
-                $sum -= abs(Invoice::anno(date('Y'))->notediaccredito()->sum('imponibile'));
+                $sum -= abs(Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->notediaccredito()->sum('imponibile') - Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->notediaccredito()->sum('ritenuta'));
                 return Primitive::NF(( $sum ));
             });
         }
         else
         {
-            $sum = Invoice::anno($year)->entrate()->sum('imponibile');
+            $sum = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum('imponibile') - Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum('ritenuta');
             // $sum += Invoice::anno($year)->unpaid()->with('payments')->get()->sum(function ($invoice) {
             //                 return $invoice->payments->sum('amount');
             //             });
-            $sum -= abs(Invoice::anno($year)->notediaccredito()->sum('imponibile'));
+            $sum -= abs(Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum('imponibile') - Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum('ritenuta'));
             $imponibile = Primitive::NF(( $sum ));
         }
         return $imponibile;
@@ -143,11 +208,11 @@ class Stat
         if(is_null($year))
         {
             $imponibile = Cache::remember('imponibile', 120, function () {
-                $sum = Invoice::anno(date('Y'))->entrate()->sum(DB::raw('iva + imponibile'));	//->saldate()
+                $sum = Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));	//->saldate()
 /*                $sum += Invoice::anno(date('Y'))->unpaid()->with('payments')->get()->sum(function ($invoice) {
                                 return $invoice->payments->sum('amount');
                             });*/
-                $sum -= abs(Invoice::anno(date('Y'))->notediaccredito()->sum(DB::raw('iva + imponibile')));	//$sum -= Invoice::anno(date('Y'))->saldate()->notediaccredito()->sum(DB::raw('iva + imponibile'));
+                $sum -= abs(Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta')));	//$sum -= Invoice::anno(date('Y'))->saldate()->notediaccredito()->sum(DB::raw('iva + imponibile'));
                 return Primitive::NF( $sum );
             });
         }
@@ -155,16 +220,16 @@ class Stat
         {
             if($year > 2018)
             {
-                $sum = Invoice::anno($year)->entrate()->sum(DB::raw('iva + imponibile'));	//->saldate()
+                $sum = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));	//->saldate()
 /*                $sum += Invoice::anno($year)->unpaid()->with('payments')->get()->sum(function ($invoice) {
                                 return $invoice->payments->sum('amount');
                             });*/
-                $sum -= abs(Invoice::anno($year)->notediaccredito()->sum(DB::raw('iva + imponibile')));	//$sum -= Invoice::anno($year)->saldate()->notediaccredito()->sum(DB::raw('iva + imponibile'));
+                $sum -= abs(Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta')));	//$sum -= Invoice::anno($year)->saldate()->notediaccredito()->sum(DB::raw('iva + imponibile'));
             }
             else
             {
-                $sum = Invoice::anno($year)->entrate()->sum(DB::raw('iva + imponibile'));
-                $sum -= abs(Invoice::anno($year)->notediaccredito()->sum(DB::raw('iva + imponibile')));	//$sum -= Invoice::anno($year)->notediaccredito()->sum(DB::raw('iva + imponibile'));
+                $sum = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));
+                $sum -= abs(Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta')));	//$sum -= Invoice::anno($year)->notediaccredito()->sum(DB::raw('iva + imponibile'));
             }
 
             $imponibile = Primitive::NF( $sum );
@@ -178,8 +243,8 @@ class Stat
         if(is_null($year))
         {
             $imponibile = Cache::remember('imponibile', 120, function () {
-                $sum = Invoice::anno(date('Y'))->entrate()->sum('imponibile');
-                $sum -= abs(Invoice::anno(date('Y'))->notediaccredito()->sum('imponibile'));
+                $sum = Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->entrate()->sum(DB::raw('imponibile - ritenuta'));
+                $sum -= abs(Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->notediaccredito()->sum(DB::raw('imponibile - ritenuta')));
                 return Primitive::NF( $sum );
             });
         }
@@ -187,13 +252,13 @@ class Stat
         {
             if($year > 2018)
             {
-                $sum = Invoice::anno($year)->entrate()->sum('imponibile');
-                $sum -= abs(Invoice::anno($year)->notediaccredito()->sum('imponibile'));
+                $sum = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum(DB::raw('imponibile - ritenuta'));
+                $sum -= abs(Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum(DB::raw('imponibile - ritenuta')));
             }
             else
             {
-                $sum = Invoice::anno($year)->entrate()->sum('imponibile');
-                $sum -= abs(Invoice::anno($year)->notediaccredito()->sum('imponibile'));
+                $sum = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum(DB::raw('imponibile - ritenuta'));
+                $sum -= abs(Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum(DB::raw('imponibile - ritenuta')));
             }
 
             $imponibile = Primitive::NF( $sum );
@@ -316,13 +381,13 @@ class Stat
         {
             if($year > 2018)
             {
-                $entrate = Invoice::mese(['year' => $year, 'month' => $month])->entrate();
-                $uscite = Invoice::mese(['year' => $year, 'month' => $month])->notediaccredito();
+                $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->entrate();
+                $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->notediaccredito();
             }
             else
             {
-                $entrate = Invoice::mese(['year' => $year, 'month' => $month])->entrate();
-                $uscite = Invoice::mese(['year' => $year, 'month' => $month])->notediaccredito();
+                $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->entrate();
+                $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->notediaccredito();
             }
             $add  = $entrate->sum('iva');
             $add -= abs($uscite->sum('iva'));
@@ -337,13 +402,13 @@ class Stat
             {
                 if($year > 2018)
                 {
-                    $entrate = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->entrate();
-                    $uscite = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->notediaccredito();
+                    $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->entrate();
+                    $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->notediaccredito();
                 }
                 else
                 {
-                    $entrate = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->entrate();
-                    $uscite = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->notediaccredito();
+                    $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->entrate();
+                    $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->notediaccredito();
                 }
                 $add  = $entrate->sum('iva');
                 $add -= abs($uscite->sum('iva'));
@@ -361,8 +426,8 @@ class Stat
                 $month = Carbon::today()->subMonths($x)->format('m');
                 $year = Carbon::today()->subMonths($x)->format('Y');
 
-                $add  = Invoice::mese(['year' => $year, 'month' => $month])->entrate()->sum('imponibile');
-                $add -= abs(Invoice::mese(['year' => $year, 'month' => $month])->notediaccredito()->sum('imponibile'));
+                $add  = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->entrate()->sum('imponibile');
+                $add -= abs(Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->notediaccredito()->sum('imponibile'));
 
                 $labels .= '"'.trans('dates.ms'.$month).'",';
                 $data .= $add.',';
@@ -405,17 +470,17 @@ class Stat
         {
             if($year > 2018)
             {
-                $entrate = Invoice::mese(['year' => $year, 'month' => $month])->entrate();
-                $uscite = Invoice::mese(['year' => $year, 'month' => $month])->notediaccredito();
+                $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->entrate();
+                $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->notediaccredito();
             }
             else
             {
-                $entrate = Invoice::mese(['year' => $year, 'month' => $month])->entrate();
-                $uscite = Invoice::mese(['year' => $year, 'month' => $month])->notediaccredito();
+                $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->entrate();
+                $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->notediaccredito();
             }
             
-            $add  = $entrate->sum('iva');
-            $add -= abs($uscite->sum('iva'));
+            $add  = $entrate->sum(DB::raw('iva + imponibile - ritenuta'));
+            $add -= abs($uscite->sum(DB::raw('iva + imponibile - ritenuta')));
 
             //calcolo vecchio
             //$add  = $entrate->sum(DB::raw('iva + imponibile'));
@@ -437,17 +502,17 @@ class Stat
             {
                 if($year > 2018)
                 {
-                    $entrate = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->entrate();
-                    $uscite = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->notediaccredito();
+                    $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->entrate();
+                    $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->notediaccredito();
                 }
                 else
                 {
-                    $entrate = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->entrate();
-                    $uscite = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->notediaccredito();
+                    $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->entrate();
+                    $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->notediaccredito();
                 }
 
-                $add  = $entrate->sum('iva');
-                $add -= abs($uscite->sum('iva'));
+                $add  = $entrate->sum(DB::raw('iva + imponibile - ritenuta'));
+                $add -= abs($uscite->sum(DB::raw('iva + imponibile - ritenuta')));
                 
                 //calcolo vecchio
                 //$add  += $entrate->sum(DB::raw('iva + imponibile'));
@@ -469,16 +534,16 @@ class Stat
         {
             if($year > 2018)
             {
-                $entrate = Invoice::mese(['year' => $year, 'month' => $month])->entrate();
-                $uscite = Invoice::mese(['year' => $year, 'month' => $month])->notediaccredito();
+                $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->entrate();
+                $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->notediaccredito();
             }
             else
             {
-                $entrate = Invoice::mese(['year' => $year, 'month' => $month])->entrate();
-                $uscite = Invoice::mese(['year' => $year, 'month' => $month])->notediaccredito();
+                $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->entrate();
+                $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', $month)->notediaccredito();
             }
-            $add  += $entrate->sum('imponibile');
-            $add -= abs($uscite->sum('imponibile'));
+            $add  += $entrate->sum('imponibile') - $entrate->sum('ritenuta');
+            $add -= abs($uscite->sum('imponibile') - $uscite->sum('ritenuta'));
         }
         else
         {
@@ -490,16 +555,16 @@ class Stat
             {
                 if($year > 2018)
                 {
-                    $entrate = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->entrate();
-                    $uscite = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->notediaccredito();
+                    $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->entrate();
+                    $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->notediaccredito();
                 }
                 else
                 {
-                    $entrate = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->entrate();
-                    $uscite = Invoice::mese(['year' => $year, 'month' => sprintf('%02d', $month)])->notediaccredito();
+                    $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->entrate();
+                    $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->notediaccredito();
                 }
-                $add  += $entrate->sum('imponibile');
-                $add -= abs($uscite->sum('imponibile'));
+                $add  += $entrate->sum('imponibile') - $entrate->sum('ritenuta');
+                $add -= abs($uscite->sum('imponibile') - $uscite->sum('ritenuta'));
             }
         }
         return $add;
@@ -515,8 +580,8 @@ class Stat
 
         for($month;$month <= $end; $month++)
         {
-            $entrateV = Invoice::mese(['year' => date('Y'), 'month' => sprintf('%02d', $month)])->entrate();
-            $usciteV = Invoice::mese(['year' => date('Y'), 'month' => sprintf('%02d', $month)])->notediaccredito();
+            $entrateV = Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->entrate();
+            $usciteV = Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->whereMonth('data', sprintf('%02d', $month))->notediaccredito();
             $addVendite += $entrateV->sum('iva') - abs($usciteV->sum('iva'));
 
             $entrateA = Cost::mese(['year' => date('Y'), 'month' => sprintf('%02d', $month)]);
@@ -539,14 +604,14 @@ class Stat
             {
                 if($year > 2018)
                 {
-                    $entrate = Invoice::anno($year)->entrate()->sum(DB::raw('iva + imponibile'));
-                    $uscite = Invoice::anno($year)->notediaccredito()->sum(DB::raw('iva + imponibile'));
+                    $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));
+                    $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta'));
                     $arr[$year] = Primitive::NF( $entrate-abs($uscite) );
                 }
                 else
                 {
-                    $entrate = Invoice::anno($year)->entrate()->sum(DB::raw('iva + imponibile'));
-                    $uscite = Invoice::anno($year)->notediaccredito()->sum(DB::raw('iva + imponibile'));
+                    $entrate = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));
+                    $uscite = Invoice::whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta'));
                     $arr[$year] = Primitive::NF( $entrate-abs($uscite) );
                 }
             }
@@ -565,8 +630,8 @@ class Stat
             {
                 foreach($query->get() as $company)
                 {
-                    $entrate += $company->invoices()->anno($year)->entrate()->sum(DB::raw('iva + imponibile'));
-                    $uscite += abs($company->invoices()->anno($year)->notediaccredito()->sum(DB::raw('iva + imponibile')));
+                    $entrate += $company->invoices()->whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));
+                    $uscite += abs($company->invoices()->whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta')));
                 }
                 $arr[$year] = Primitive::NF( $entrate-$uscite );
             }
@@ -574,8 +639,8 @@ class Stat
             {
                 foreach($query->get() as $company)
                 {
-                    $entrate += $company->invoices()->anno($year)->entrate()->sum(DB::raw('iva + imponibile'));
-                    $uscite += abs($company->invoices()->anno($year)->notediaccredito()->sum(DB::raw('iva + imponibile')));
+                    $entrate += $company->invoices()->whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));
+                    $uscite += abs($company->invoices()->whereBetween('data', [$year.'-06-01', ($year+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta')));
                 }
                 $arr[$year] = Primitive::NF( $entrate-$uscite );
             }
@@ -589,9 +654,9 @@ class Stat
         if(is_null($anno))
         {
             $utili = Cache::remember('imponibile', 120, function () {
-                $sum = Invoice::anno(date('Y'))->entrate()->sum(DB::raw('iva + imponibile'));
-                $sum -= abs(Invoice::anno(date('Y'))->notediaccredito()->sum(DB::raw('iva + imponibile')));
-                $sum -= Cost::anno(date('Y'))->sum('totale');
+                $sum = Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));
+                $sum -= abs(Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta')));
+                $sum -= Cost::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->sum('totale');
                 return Primitive::NF( $sum );
             });
             return $utili;
@@ -599,14 +664,14 @@ class Stat
 
         if($anno > 2018)
         {
-            $sum = Invoice::anno($anno)->entrate()->sum(DB::raw('iva + imponibile'));
-            $sum -= abs(Invoice::anno($anno)->notediaccredito()->sum(DB::raw('iva + imponibile')));
-            $sum -= Cost::anno($anno)->sum('totale');
+            $sum = Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));
+            $sum -= abs(Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta')));
+            $sum -= Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum('totale');
             return Primitive::NF( $sum );
         }
-        $sum = Invoice::anno($anno)->entrate()->sum(DB::raw('iva + imponibile'));
-        $sum -= abs(Invoice::anno($anno)->notediaccredito()->sum(DB::raw('iva + imponibile')));
-        $sum -= Cost::anno($anno)->sum('totale');
+        $sum = Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->entrate()->sum(DB::raw('iva + imponibile - ritenuta'));
+        $sum -= abs(Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->notediaccredito()->sum(DB::raw('iva + imponibile - ritenuta')));
+        $sum -= Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum('totale');
         return Primitive::NF( $sum );
     }
 
@@ -617,9 +682,9 @@ class Stat
         if(is_null($anno))
         {
             $utili = Cache::remember('imponibile', 120, function () {
-                $sum = Invoice::anno(date('Y'))->entrate()->sum('imponibile');
-                $sum -= Invoice::anno(date('Y'))->notediaccredito()->sum('imponibile');
-                $sum -= Cost::anno(date('Y'))->sum('imponibile');
+                $sum = Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->entrate()->sum(DB::raw('imponibile - ritenuta'));
+                $sum -= Invoice::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->notediaccredito()->sum(DB::raw('imponibile - ritenuta'));
+                $sum -= Cost::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->sum(DB::raw('imponibile - ritenuta'));
                 return Primitive::NF( $sum );
             });
             return $utili;
@@ -627,14 +692,14 @@ class Stat
 
         if($anno > 2018)
         {
-            $sum = Invoice::anno($anno)->entrate()->sum('imponibile');
-            $sum -= Invoice::anno($anno)->notediaccredito()->sum('imponibile');
-            $sum -= Cost::anno($anno)->sum('imponibile');
+            $sum = Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->entrate()->sum(DB::raw('imponibile - ritenuta'));
+            $sum -= Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->notediaccredito()->sum(DB::raw('imponibile - ritenuta'));
+            $sum -= Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum(DB::raw('imponibile'));
             return Primitive::NF( $sum );
         }
-        $sum = Invoice::anno($anno)->entrate()->sum('imponibile');
-        $sum -= Invoice::anno($anno)->notediaccredito()->sum('imponibile');
-        $sum -= Cost::anno($anno)->sum('imponibile');
+        $sum = Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->entrate()->sum(DB::raw('imponibile - ritenuta'));
+        $sum -= Invoice::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->notediaccredito()->sum(DB::raw('imponibile - ritenuta'));
+        $sum -= Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum(DB::raw('imponibile'));
         return Primitive::NF( $sum );
     }
 
@@ -692,15 +757,15 @@ class Stat
         if(is_null($anno))
         {
             $imposte_costi = Cache::remember('imposte_costi', 120, function () {
-                $t = Cost::anno(date('Y'))->sum('totale');
-                $t -=  Cost::anno(date('Y'))->sum('imponibile');
+                $t = Cost::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->sum('totale');
+                $t -=  Cost::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->sum('imponibile');
                 return Primitive::NF( $t );
             });
         }
         else
         {
-            $t = Cost::anno($anno)->sum('totale');
-            $t -=  Cost::anno($anno)->sum('imponibile');
+            $t = Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum('totale');
+            $t -=  Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum('imponibile');
             return Primitive::NF( $t );
         }
 
@@ -713,12 +778,12 @@ class Stat
         if(is_null($anno))
         {
             $totale_costi = Cache::remember('totale_costi', 120, function () {
-                return Primitive::NF( Cost::anno(date('Y'))->sum('totale') );
+                return Primitive::NF( Cost::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->sum('totale') );
             });
             return $totale_costi;
         }
 
-        return Primitive::NF( Cost::anno($anno)->sum('totale') );
+        return Primitive::NF( Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum('totale') );
     }
 
     public static function TotaleCostiImponibile($anno = null)
@@ -726,12 +791,12 @@ class Stat
         if(is_null($anno))
         {
             $totale_costi = Cache::remember('totale_costi', 120, function () {
-                return Primitive::NF( Cost::anno(date('Y'))->sum('imponibile') );
+                return Primitive::NF( Cost::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->sum('imponibile') );
             });
             return $totale_costi;
         }
 
-        return Primitive::NF( Cost::anno($anno)->sum('imponibile') );
+        return Primitive::NF( Cost::whereBetween('data', [$anno.'-06-01', ($anno+1).'-05-31'])->sum('imponibile') );
     }
 
 
@@ -744,10 +809,10 @@ class Stat
         foreach(Category::categoryOf('Expense')->orderBy('nome', 'asc')->get() as $category)
         {
             $ids = $category->expenses()->pluck('id')->toArray();
-            $arr[$category->nome] = Primitive::NF(Cost::anno(date('Y'))->whereIn('expense_id', $ids)->sum('totale'));
+            $arr[$category->nome] = Primitive::NF(Cost::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->whereIn('expense_id', $ids)->sum('totale'));
         }
 
-        $arr[$default->nome] = Primitive::NF(Cost::anno(date('Y'))->where('expense_id', $default->id)->sum('totale'));
+        $arr[$default->nome] = Primitive::NF(Cost::whereBetween('data', [date('Y').'-06-01', (date('Y')+1).'-05-31'])->where('expense_id', $default->id)->sum('totale'));
         return $arr;
     }
 
@@ -782,7 +847,24 @@ class Stat
     }
 
 
+	public static function groupProductsByCategoryFromProducts($products)
+    {        
+        //$grouped = Cache::remember('groupedProducts', 120, function ($products) {
+            $grouped = [];
+            
+            foreach($products as $product){
+            	$cat = \DB::table('categorizables')->where('categorizable_id', $product)->where('categorizable_type', 'Areaseb\Core\Models\Product')->pluck('category_id')->first();
+            	
+            	$grouped[intval($cat)][] = $product;
+            }
+            
+            ksort($grouped);
+            
+            return $grouped;
+        //});
 
+        return $grouped;
+    }
 
 
 

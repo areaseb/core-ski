@@ -1,7 +1,7 @@
 @extends('areaseb::layouts.app')
 
 @section('breadcrumbs')
-    <li class="breadcrumb-item"><a href="{{config('app.url')}}companies">Aziende</a></li>
+    <li class="breadcrumb-item"><a href="{{config('app.url')}}companies">Clienti</a></li>
 @stop
 
 @section('css')
@@ -82,38 +82,16 @@
                 </div>
                 <div class="card-body psmb">
                     <strong><i class="fas fa-map-marker-alt mr-1"></i> Indirizzo</strong>
-                    <p class="text-muted">{{$company->address}} <br>
-                         {{$company->zip}}, {{$company->city}} ({{$company->province}}) {{$company->nation}}
-                    </p>
-                    <hr>
-                    <div class="row">
-                        <div class="col-6">
-                            <strong><i class="fas fa-map-marker-alt mr-1"></i> Lista Sedi</strong>
-                        </div>
-                        <div class="col-6">
-                            <a href="#" data-title="Aggiungi Sede" class="btn btn-primary btn-block btn-add-sede-modal"> Aggiungi</a>
-                        </div>
-                    </div>
-                    <br>
-                    @foreach(Areaseb\Core\Models\Company::sedi($company->id) as $sede)
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="text-muted">{{$sede->indirizzo}} <br>
-                                    {{$sede->cap}}, {{$sede->citta}} ({{$sede->provincia}}) {{$sede->paese}}
-                                </p>
-                            </div>
-                            <div class="col-6">
-                                {!! Form::open(['method' => 'delete', 'url' => 'companies-sede/'.$sede->id, 'id' => "form-".$sede->id]) !!}
-                                    <a class="btn btn-sm btn-primary btn-update-sede-modal" data-id="{{$sede->id}}" href="#"><i class="fas fa-edit"></i></a>
-                                    <button type="submit" id="{{$sede->id}}" class="btn btn-danger btn-icon btn-sm delete"><i class="fa fa-trash"></i></button>
-                                    
-                                {!! Form::close() !!}
-                            </div>
-                        </div>
-                        <hr>
-                    @endforeach
+                    @php
+                        $indirizzo_completo = $company->address.','.$company->zip.','.$company->city.','.$company->province;
+                    @endphp
 
-                    
+                    <br>
+                    <a href="{{'https://www.google.com/maps/place/'.str_replace(' ', '+', $indirizzo_completo)}}" class="text-muted">{{$company->address}} <br>
+                         {{$company->zip}}, {{$company->city}} ({{$company->province}}) {{$company->nation}}
+                    </a>
+                    <hr>
+
                     <strong><i class="fas fa-euro-sign mr-1"></i> Fatturazione</strong>
                     @if($company->pec)<p class="text-muted"><b>PEC:</b> {{$company->pec}}</p>@endif
                     @if($company->piva)<p class="text-muted"><b>P.IVA:</b> {{$company->piva}}</p>@endif
@@ -121,7 +99,7 @@
                     @if($company->sdi)<p class="text-muted"><b>SDI:</b> {{$company->sdi}}</p>@endif
                     <hr>
                     <strong><i class="fas fa-at mr-1"></i> Contatti</strong>
-                    @if($company->phone)<p class="text-muted"><b>Tel:</b> {{$company->phone}}</p>@endif
+                    <p class="text-muted"><b>Tel:</b> @if($company->phone != '' && $company->phone != '+39') {{$company->phone}} @else {{$company->mobile}} @endif</p>
                     @if($company->email)<p class="text-muted"><b>Email:</b> <small>{{$company->email}}</small></p>@endif
                     @if($company->email_ordini)<p class="text-muted"><b>Email Ord.:</b> <small>{{$company->email_ordini}}</small></p>@endif
                     @if($company->email_fatture)<p class="text-muted"><b>Email Fatt.:</b> <small>{{$company->email_fatture}}</small></p>@endif
@@ -136,15 +114,23 @@
             <div class="card">
                 <div class="card-header p-2">
                     <ul class="nav nav-pills">
-                        <li class="nav-item"><a class="nav-link active" href="#info" data-toggle="tab">Info</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#info" data-toggle="tab">Info</a></li>
                         @if($company->events()->exists())
                             <li class="nav-item"><a class="nav-link" href="#eventi" data-toggle="tab">Eventi</a></li>
                         @endif
 
-                        <li class="nav-item"><a class="nav-link" href="#contatti" data-toggle="tab">Contatti</a></li>
+                        <li class="nav-item"><a class="nav-link active" href="#contatti" data-toggle="tab">Contatti</a></li>
+                        <li class="nav-item"><a class="nav-link" id="tab-storia" href="#storia" data-toggle="tab">Storico ore</a></li>
+                        <li class="nav-item"><a class="nav-link" id="tab-ore" href="#ore" data-toggle="tab">Ore aperte</a></li>
+                        {{--<li class="nav-item"><a class="nav-link" id="tab-collettivi" href="#collettivi" data-toggle="tab">Collettivi</a></li>--}}
+                        @if($company->contacts->count() > 0)
+	                        <li class="nav-item"><a class="nav-link" id="tab-ore" href="#ore_contatti" data-toggle="tab">Ore aperte contatti</a></li>
+	                        <li class="nav-item"><a class="nav-link" id="tab-collettivi" href="#collettivi_contatti" data-toggle="tab">Collettivi contatti</a></li>
+                        @endif
                         @if($company->invoices()->exists())
                             @can('invoices.read')
                                 <li class="nav-item"><a class="nav-link" href="#fatture" data-toggle="tab">Fatture</a></li>
+                                <li class="nav-item"><a class="nav-link" href="#fatture_contatti" data-toggle="tab">Fatture contatti</a></li>
                             @endcan
                             @can('products.read')
                                 <li class="nav-item"><a class="nav-link" href="#prodotti" data-toggle="tab">Prodotti Venduti</a></li>
@@ -164,14 +150,31 @@
                 </div>
                 <div class="card-body">
                     <div class="tab-content">
-                        <div class="active tab-pane" id="info">
+                        <div class="tab-pane" id="info">
                             @include('areaseb::core.companies.components.note')
                         </div>
-                        <div class="tab-pane" id="contatti">
-                            @can('products.read')
+                        <div class="active tab-pane" id="contatti">
+                            @can('contacts.read')
                                 @include('areaseb::core.companies.components.contacts')
                             @endcan
                         </div>
+                        <div class="tab-pane" id="storia">
+                                @include('areaseb::core.companies.components.storico_ore')
+                        </div>
+                        <div class="tab-pane" id="ore">
+                                @include('areaseb::core.companies.components.ore')
+                        </div>
+                        {{--<div class="tab-pane" id="collettivi">
+                                @include('areaseb::core.companies.components.collettivi')
+                        </div>--}}
+                        @if($company->contacts->count() > 0)
+	                        <div class="tab-pane" id="ore_contatti">
+	                                @include('areaseb::core.companies.components.ore_contatti')
+	                        </div>
+	                        <div class="tab-pane" id="collettivi_contatti">
+	                                @include('areaseb::core.companies.components.collettivi_contatti')
+	                        </div>
+                        @endif
                         @if($company->events()->exists())
                             <div class="tab-pane" id="eventi">
                                 @include('areaseb::core.companies.components.events')
@@ -180,6 +183,11 @@
                         <div class="tab-pane" id="fatture">
                             @can('invoices.read')
                                 @include('areaseb::core.companies.components.invoices')
+                            @endcan
+                        </div>
+                        <div class="tab-pane" id="fatture_contatti">
+                            @can('invoices.read')
+                                @include('areaseb::core.companies.components.invoices_contatti')
                             @endcan
                         </div>
                         <div class="tab-pane" id="prodotti">
@@ -314,6 +322,145 @@
     </div>
 </div>
 
+		<div class="modal fade" id="modalAddDoc" tabindex="-1" role="dialog" aria-labelledby="staticBackdrop" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5>Inserisci i dati del documento in cui aggiungere l'ora</h5>
+                        <h5 id="ccID" hidden></h5>
+                        <h5 id="oracID" hidden></h5>                        
+                        <h5 id="invoiceID" hidden></h5>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <b>Sede: </b> <label id="lbl_cc"></label>
+                            </div> 
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                            <b>Tipo di documento: </b>
+                                <select class="form-control"  id="tipo_doc">
+                                    <option value="R">Ricevuta</option>
+                                    <option value="F">Fattura</option>
+                                    <option value="D">Documento</option>
+                                    <option value="A">Nota di accredito</option>
+                                </select>
+                            </div> 
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <b>N° documento: </b><input type="text" id="n_doc" class="form-control">
+                            </div> 
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <b>Data documento: </b><input type="date" id="data_doc" class="form-control">
+                            </div> 
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                            <b>Prodotto:</b>
+                            {!! Form::select('prodotto_doc',$products, null, ['class' => 'select2 ucc', 'data-fouc', 'style' => 'width:100%']) !!}
+
+                            </div> 
+                        </div>
+
+                        <br>
+                        <div class="alert alert-info alert-info-add-doc" style="display:none">
+                            <strong>Attenzione!</strong> Documento non trovato!
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="closemodalAddDoc">Annulla</button>
+                        <button type="button" class="btn btn-success" id="btnAddDoc">Inserisci</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="modal fade" id="modalAddDocs" tabindex="-1" role="dialog" aria-labelledby="staticBackdrop" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5>Inserisci i dati del documento in cui aggiungere gli Items selezionati</h5>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-12">
+                            <b>Tipo di documento: </b>
+                                <select class="form-control"  id="tipo_doc_m">
+                                    <option value="R">Ricevuta</option>
+                                    <option value="F">Fattura</option>
+                                    <option value="D">Documento</option>
+                                    <option value="A">Nota di accredito</option>
+                                </select>
+                            </div> 
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <b>N° documento: </b><input type="text" id="n_doc_m" class="form-control">
+                            </div> 
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <b>Data documento: </b><input type="date" id="data_doc_m" class="form-control">
+                            </div> 
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                            <b>Prodotto:</b>
+                            {!! Form::select('prodotto_doc_m',$products, null, ['class' => 'select2 ucc', 'data-fouc', 'style' => 'width:100%']) !!}
+
+                            </div> 
+                        </div>
+
+                        <br>
+                        <div class="alert alert-info alert-info-add-doc" style="display:none">
+                            <strong>Attenzione!</strong> Documento non trovato!
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="closemodalAddDocs">Annulla</button>
+                        <button type="button" class="btn btn-success" id="btnAddDocs">Inserisci</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="modal fade" id="modalOperazione" tabindex="-1" role="dialog" aria-labelledby="staticBackdrop"
+            aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5>Scegli operazione da effettuare</h5>
+                        <h5 id="sel_totale" hidden></h5>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <h5>Vuoi fatturare tutto in una sola fattura o associare ad un documento già esistente?</h5> 
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="closemodalOperazione">Annulla</button>
+                        <button type="button" class="btn btn-primary" onclick="fatturare()">Fattura</button>
+                        <button type="button" class="btn btn-success" onclick="openModalDocs()">Aggiungi a Documento</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
 
 
@@ -322,7 +469,7 @@
 @section('scripts')
 <script>
     var listaSedi = <?php echo json_encode(Areaseb\Core\Models\Company::sedi($company->id)); ?>;
-
+    
     $('.btn-update-sede-modal').on('click', function(){
         let dataId = $(this).attr("data-id");
        
@@ -361,7 +508,239 @@
     if(currentUrl.includes('#'))
     {
         let arr = currentUrl.split('#');
-        $('a[href="#'+arr[1]+'"]').click();
+		if(arr[1] != '')		
+        	$('a[href="#'+arr[1]+'"]').click();
+    }
+    
+    
+    // fatturazione ore e collettivi aperti
+    $('select[name="prodotto_doc"]').select2({width: '100%'});
+    $('select[name="prodotto_doc_m"]').select2({width: '100%'});
+
+    function clearFieldAddDoc(){
+        $('#tipo_doc_m').val('');
+        $('#n_doc_m').val('');
+        $('#data_doc_m').val('');
+        $('select[name="prodotto_doc_m"]').val('')
+
+        $('#tipo_doc').val('');
+        $('#n_doc').val('');
+        $('#data_doc').val('');
+        $('select[name="prodotto_doc"]').val('')
+    }
+    
+    function openModalDoc(sede_id, ora_id, sede_lbl, invoice_id = null){
+        $('#ccID').val(sede_id)
+        $('#oracID').val(ora_id)
+        $('#invoiceID').val(invoice_id)
+        $('#lbl_cc').text(sede_lbl)
+        clearFieldAddDoc();
+        $('#modalAddDoc').modal('toggle');
+    }
+
+    function openModalDocs(){
+        clearFieldAddDoc();
+        $('#modalOperazione').modal('toggle');
+        $('#modalAddDocs').modal('toggle');
+    }
+
+
+    $("#closemodalAddDoc").click(function() {
+        $('#modalAddDoc').modal('toggle');
+    });
+
+    $("#closemodalAddDocs").click(function() {
+	    $('#modalAddDocs').modal('toggle');
+    });
+
+    $("#closemodalOperazione").click(function() {
+        $('#modalOperazione').modal('toggle');
+    });
+
+
+    $( "#btnAddDoc" ).click(function() {
+            var ora_id = $('#oracID').val()
+            var invoice_id = $('#invoiceID').val()
+            jQuery.ajax('/planning/add-document-ora',
+            {
+                method: 'POST',
+                data: {
+                    "_token": '{{ csrf_token() }}',
+                    "tipo_doc": $('#tipo_doc').val(),
+                    "n_doc": $('#n_doc').val(),
+                    "data_doc": $('#data_doc').val(),
+                    "prodotto_doc":$('select[name="prodotto_doc"]').val(),
+                    "ora_id":ora_id,
+                    "invoice_id":invoice_id
+                },
+
+                complete: function (resp) {
+                    $('.alert').hide();
+                    var result = JSON.parse(resp.responseText);
+                    if(result.code){
+                        if(result.data != null){
+                            //var tab = $('.tab-content .active').attr('id');
+                            //sessionStorage.setItem("tab-customer", tab);
+                            location.href = '/invoices/'+result.data+'/edit';
+                            //location.reload();
+                        }
+                        else
+                            $('.alert-info-add-doc').show();
+                    }     
+                }
+            });
+    })
+
+    $( "#btnAddDocs" ).click(function() {
+        var all = $('#sel_totale').val();
+        var arrStr = "";
+        var arrInvoices = '';
+        var cb = $('.cbOp');
+
+        if(all == 1){
+            $.each(cb, function() {
+                arrStr = arrStr != '' ? arrStr + ',' + $(this).attr("data-oraid") : $(this).attr("data-oraid");
+				arrInvoices = arrInvoices != '' ? arrInvoices + ',' + $(this).attr("data-invoiceid") : $(this).attr("data-invoiceid");
+            }); 
+        }
+        else{
+            $.each(cb, function() {
+                var $this = $(this);
+                if($this.is(":checked")) {
+                    arrStr = arrStr != '' ? arrStr + ',' + $(this).attr("data-oraid") : $(this).attr("data-oraid");
+					arrInvoices = arrInvoices != '' ? arrInvoices + ',' + $(this).attr("data-invoiceid") : $(this).attr("data-invoiceid");
+                }
+            }); 
+        }		
+        
+        jQuery.ajax('/planning/add-documents-item',
+        {
+            method: 'POST',
+            data: {
+                "_token": '{{ csrf_token() }}',
+                "tipo_doc": $('#tipo_doc_m').val(),
+                "n_doc": $('#n_doc_m').val(),
+                "data_doc": $('#data_doc_m').val(),
+                "prodotto_doc":$('select[name="prodotto_doc_m"]').val(),
+                "ids_ore": arrStr,
+				'ids_invoices': arrInvoices,
+            },
+
+            complete: function (resp) {
+                $('.alert').hide();
+                var result = JSON.parse(resp.responseText);
+                if(result.code){
+                    if(result.data != null){
+                        //var tab = $('.tab-content .active').attr('id');
+                        //sessionStorage.setItem("tab-customer", tab);
+                    	location.href = '/invoices/'+result.data+'/edit';
+                        //location.reload();
+                    }
+                    else
+                        $('.alert-info-add-doc').show();
+                }     
+            }
+        });
+    })
+
+
+    function scegliOperazione(all){
+        var arrStr = "";
+        var arrOre = '';
+        var arrInvo = '';
+        var cb = $('.cbOp');
+
+        if(all == 1){
+            $.each(cb, function() {
+                arrStr = arrStr != '' ? arrStr + ',' + $(this).attr("id") : $(this).attr("id");   
+                arrOre = arrOre != '' ? arrOre + ',' + $(this).attr("data-oraid") : $(this).attr("data-oraid");  
+                arrInvo = arrInvo != '' ? arrInvo + ',' + $(this).attr("data-invoiceid") : $(this).attr("data-invoiceid");  
+            }); 
+        }
+        else{
+            $.each(cb, function() {
+                var $this = $(this);
+                if($this.is(":checked")) {
+                    arrStr = arrStr != '' ? arrStr + ',' + $(this).attr("id") : $(this).attr("id");
+                    arrOre = arrOre != '' ? arrOre + ',' + $(this).attr("data-oraid") : $(this).attr("data-oraid");  
+                	arrInvo = arrInvo != '' ? arrInvo + ',' + $(this).attr("data-invoiceid") : $(this).attr("data-invoiceid"); 
+                }
+            }); 
+        }
+
+        console.log('array: ', arrOre);
+/*        if(arrStr == ''){
+            alert('Per proseguire devi selezionare almeno un Elemento nella tabella!')
+            return;
+        }*/
+        if(arrOre == ''){
+            alert('Per proseguire devi selezionare almeno un Elemento nella tabella!')
+            return;
+        }
+        $('#sel_totale').val(all);
+        $('#modalOperazione').modal('toggle');
+    }
+
+
+
+
+    function fatturare(){
+        var all = $('#sel_totale').val();
+        var arrStr = "";
+        var arrOre = '';
+        var arrInvo = '';
+        var cb = $('.cbOp');
+
+        if(all == 1){
+            $.each(cb, function() {
+                arrStr = arrStr != '' ? arrStr + ',' + $(this).attr("id") : $(this).attr("id");   
+                arrOre = arrOre != '' ? arrOre + ',' + $(this).attr("data-oraid") : $(this).attr("data-oraid");  
+                arrInvo = arrInvo != '' ? arrInvo + ',' + $(this).attr("data-invoiceid") : $(this).attr("data-invoiceid");              
+            }); 
+        }
+        else{
+            $.each(cb, function() {
+                var $this = $(this);
+                if($this.is(":checked")) {
+                    arrStr = arrStr != '' ? arrStr + ',' + $(this).attr("id") : $(this).attr("id");
+                    arrOre = arrOre != '' ? arrOre + ',' + $(this).attr("data-oraid") : $(this).attr("data-oraid");  
+                	arrInvo = arrInvo != '' ? arrInvo + ',' + $(this).attr("data-invoiceid") : $(this).attr("data-invoiceid");  
+                }
+            }); 
+        }
+		
+        console.log('array: ', arrOre);
+/*        if(arrStr == ''){
+            alert('Per proseguire devi selezionare almeno un Elemento nella tabella!')
+            return;
+        }*/
+        if(arrOre == ''){
+            alert('Per proseguire devi selezionare almeno un Elemento nella tabella!')
+            return;
+        }
+
+        jQuery.ajax('/ore_aperte/fatturare',
+        {
+            method: 'POST',
+            data: {
+                "_token": '{{ csrf_token() }}',
+                "ids_invoice": arrInvo,
+                "ids_ore": arrOre,
+                "ids_item": arrStr,
+            },
+
+            complete: function (resp) {
+                var result = JSON.parse(resp.responseText);
+                if(result.code){
+                    
+                    var tab = $('.tab-content .active').attr('id');
+                    console.log(tab);
+                    sessionStorage.setItem("tab-customer",tab);
+                    location.href = '/invoices/'+result.id+'/edit';
+                    //location.reload();
+                }     
+            }
+        });
     }
 
 </script>

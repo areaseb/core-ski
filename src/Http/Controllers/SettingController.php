@@ -33,7 +33,8 @@ class SettingController extends Controller
             'renewals' => 'renewals',
             'clients' => 'clients',
             'invoices' => 'invoices',
-            'events' => 'events'
+            'events' => 'events',
+            'ora' => 'ora'
         ];
 
         $fields = [];

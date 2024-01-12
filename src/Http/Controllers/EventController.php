@@ -3,7 +3,7 @@
 namespace Areaseb\Core\Http\Controllers;
 
 use App\User;
-use Areaseb\Core\Models\{Calendar, Contact, Company, Event};
+use Areaseb\Core\Models\{Calendar, Contact, Company, Event, Notification, Setting, ContactBranch, Master, Ora};
 use Illuminate\Http\Request;
 use \Carbon\Carbon;
 use \Storage;
@@ -74,7 +74,7 @@ class EventController extends Controller
         }
         else
         {
-            $event->update(['done' => 1, 'backgroundColor' => '#019222']);
+            $event->update(['done' => 1, 'backgroundColor' => '#28a745']);
         }
 
         return 'done';
@@ -235,8 +235,7 @@ class EventController extends Controller
         else
             $event_record = $event->where('id', $event->parent_event_id)->with('user','companies', 'users', 'contacts')->get();
 
-           
-        $autore = Contact::where('id', $event_record[0]->user_id)->first();
+        $autore = Contact::where('user_id', $event_record[0]->user_id)->first();
         $event_record[0]->autore =  $autore->nome.' '. $autore->cognome;
         return ['event' => $event_record];
     }
@@ -341,12 +340,14 @@ class EventController extends Controller
             }
         }
 
-        $event_id = $event->parent_event_id != null ? $event->parent_event_id : $event->id;
+        $event_id = $event->parent_event_id != null ? $event->parent_event_id : $event->id;        
         \DB::table('event_user')->where('event_id', $event_id)->where('user_id', auth()->user()->id)->delete();
-        if($event->parent_event_id != null)
-            $event->delete();
-
-        return redirect('calendars/'.$calendar_id)->with('message', 'Evento eliminato');
+        if($event->parent_event_id != null){
+        	$event->delete();
+        	return redirect('calendars/'.$calendar_id)->with('message', 'Evento eliminato');
+        } else {
+        	return redirect('calendars/'.$calendar_id)->with('error', "Evento creato da te e condiviso. Eliminare PER TUTTI.");
+        }            
     }
 
     //api-events/{event} - GET
@@ -355,6 +356,34 @@ class EventController extends Controller
         return $event;
     }
 
+//getContacts/{company_id}
+	public function getContacts($company_id, $token)
+	{
+		if($token != 0){
+			$calendar = Calendar::where('token', $token)->first();
+
+	        if(is_null($calendar))
+	        {
+	            abort(404);
+	        }
+
+	        $utente = User::find($calendar->user_id);
+	        \Auth::login($utente);
+		}		
+        
+		$contacts_get = Contact::select('nome', 'cognome', 'id');
+        if($company_id){
+        	$contacts_get = $contacts_get->where('company_id', $company_id);
+        }
+        $contacts_get = $contacts_get->orderBy('cognome')->get();
+		
+		$contacts = [''=>''];
+		foreach($contacts_get as $contact){
+			$contacts[$contact->id] = $contact->nome . ' ' . $contact->cognome;
+		}
+		
+		return $contacts;
+	}
 
 //addevent/{token}
     public function createFromToken($token)
@@ -367,9 +396,24 @@ class EventController extends Controller
         }
 
         $utente = User::find($calendar->user_id);
+        \Auth::login($utente);
+		
+        $companies = [''=>'']+Company::orderBy('rag_soc')->pluck('rag_soc', 'id')->toArray();
+		$luoghi = Company::select('address','zip','city', 'province', 'id')->get();
+		$contacts = [''=>'']+Contact::all()->pluck('fullname' ,'id')->toArray();
 
-        $companies = [''=>'']+Company::pluck('rag_soc', 'id')->toArray();
+        $luoghi_companies =[];
+        foreach($luoghi as $luogo) {
+            if($luogo->address != null && $luogo->address != ''){
 
+                $record = [
+                    'key' =>$luogo->id,
+                    'value' =>$luogo->address.' - '.$luogo->zip .' '.$luogo->city.' '. $luogo->province,
+
+                ];
+                array_push($luoghi_companies,$record);
+            }        
+        }
         $calendars = Calendar::where('user_id', $utente->id)->pluck('nome', 'id');
 
         $users = [];
@@ -379,7 +423,7 @@ class EventController extends Controller
         }
 
 
-        return view('areaseb::core.events.createToken', compact('calendar', 'utente', 'token', 'companies', 'calendars', 'users'));
+        return view('areaseb::core.events.createToken', compact('calendar', 'utente', 'token', 'companies', 'contacts', 'calendars', 'users', 'luoghi_companies'));
     }
 
 
@@ -388,16 +432,39 @@ class EventController extends Controller
     {
         foreach (self::all() as $calendar)
         {
-            $contents = $calendar->header;
-$description = (strstr($event->summary, PHP_EOL)) ? '' : $event->summary;
-                $singleEvent =
-"\r\nBEGIN:VEVENT\r
+            $contents = "BEGIN:VCALENDAR\r
+PRODID:-//".config('app.name')."//IT\r
+VERSION:2.0\r
+CALSCALE:GREGORIAN\r
+X-WR-CALNAME:calendario_".$ics_name."\r
+X-WR-TIMEZONE:Europe/Rome\r
+BEGIN:VTIMEZONE\r
+TZID:Europe/Rome\r
+X-LIC-LOCATION:Europe/Rome\r
+BEGIN:DAYLIGHT\r
+TZOFFSETFROM:+0100\r
+TZOFFSETTO:+0200\r
+TZNAME:CEST\r
+DTSTART:19700329T020000\r
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU\r
+END:DAYLIGHT\r
+BEGIN:STANDARD\r
+TZOFFSETFROM:+0200\r
+TZOFFSETTO:+0100\r
+TZNAME:CET\r
+DTSTART:19701025T030000\r
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU\r
+END:STANDARD\r
+END:VTIMEZONE\r\n";
+
+			//$description = (strstr($event->summary, PHP_EOL)) ? '' : $event->summary;
+            $singleEvent = "BEGIN:VEVENT\r
 DTSTART:".$event->starts_at->format('Ymd\THis')."\r
 DTEND:".$event->ends_at->format('Ymd\THis')."\r
 DTSTAMP:".Carbon::now()->format('Ymd\THis')."\r
 UID:".uniqid()."\r
 CREATED:".$event->created_at->format('Ymd\THis')."\r
-DESCRIPTION:".$description."\r
+DESCRIPTION:".$event->summary."\r
 LAST-MODIFIED:".$event->updated_at->format('Ymd\THis')."\r
 LOCATION:".$event->location."\r
 SEQUENCE:1\r
@@ -406,13 +473,12 @@ SUMMARY:".$event->title."\r
 TRANSP:OPAQUE\r
 BEGIN:VALARM\r
 ACTION:DISPLAY\r
-DESCRIPTION:This is an event reminder\r
 TRIGGER:-PT10M\r
 END:VALARM\r
-END:VEVENT\r";
-$contents .= $singleEvent;
+END:VEVENT\r\n";
+			$contents .= $singleEvent;
 
-            $contents .= "\r\nEND:VCALENDAR";
+            $contents .= "END:VCALENDAR";
             
             $filename = 'public/calendars/'.$ics_name;
 
@@ -432,44 +498,47 @@ $contents .= $singleEvent;
     public function storeFromToken(Request $request, $token)
     {
         $event = new Event;
-            $event->starts_at = Carbon::createFromFormat('d/m/Y H:i', $request->from_date . ' ' . ($request->da_ora) .':'.$request->da_minuto)->format('Y-m-d H:i:s');
-            $event->ends_at = Carbon::createFromFormat('d/m/Y H:i', $request->from_date . ' ' . ($request->a_ora) .':'.$request->a_minuto)->format('Y-m-d H:i:s');
-            $event->title = $request->title;
-            $event->summary = $request->summary;
-            $event->location = $request->location;
-            $event->user_id = $request->user_id;
-            $event->calendar_id = $request->calendar_id;
+        $event->starts_at = Carbon::createFromFormat('d/m/Y H:i', $request->from_date . ' ' . ($request->da_ora) .':'.$request->da_minuto)->format('Y-m-d H:i:s');
+        $event->ends_at = Carbon::createFromFormat('d/m/Y H:i', $request->from_date . ' ' . ($request->a_ora) .':'.$request->a_minuto)->format('Y-m-d H:i:s');
+        $event->title = $request->title;
+        $event->summary = $request->summary;
+        $event->location = $request->location;
+        $event->user_id = $request->user_id;
+        $event->calendar_id = $request->calendar_id;
         $event->save();
+
+
+        $datetime_evento = explode(" ",$event->starts_at);
+        $date_evento = explode("-",$datetime_evento[0]);
+        $data_evento = $date_evento[2].'/'.$date_evento[1].'/'.$date_evento[0];
+        $ora_evento = substr($datetime_evento[1],0,5);
+
+
+        $contatto_mitt = User::where('id', auth()->user()->id)->with('contact')->get()[0]->contact;
+        $mittente = User::where('id', auth()->user()->id)->first()->getFullnameAttribute();
+        //->with('contact')->get()[0]->contact;
+        $companyName = Company::where('id', $contatto_mitt->company_id)->first()->rag_soc;
+
 
         if($request->company_id)
         {
             $event->companies()->attach($request->company_id);
         }
 
-
         if(isset($request->emails) && $request->emails != null){
-            $dsn = 'smtp://'.Setting::smtp(0)['MAIL_USERNAME'].':'.Setting::smtp(0)['MAIL_PASSWORD'].'@'.Setting::smtp(0)['MAIL_HOST'].':'.Setting::smtp(0)['MAIL_PORT'];
-            Mail::mailer($dsn);
-
-            $datetime_evento = explode(" ",$event->starts_at);
-            $date_evento = explode("-",$datetime_evento[0]);
-            $data_evento = $date_evento[2].'/'.$date_evento[1].'/'.$date_evento[0];
-            $ora_evento = substr($datetime_evento[1],0,5);
+            //vecchia gestione
+            //$dsn = 'smtp://'.Setting::smtp(0)['MAIL_USERNAME'].':'.Setting::smtp(0)['MAIL_PASSWORD'].'@'.Setting::smtp(0)['MAIL_HOST'].':'.Setting::smtp(0)['MAIL_PORT'];
+            //Mail::mailer($dsn);
 
 
-            $contatto_mitt = User::where('id', auth()->user()->id)->with('contact')->get()[0]->contact;
-            $mittente = User::where('id', auth()->user()->id)->first()->getFullnameAttribute();
-            //->with('contact')->get()[0]->contact;
-            $companyName = Company::where('id', $contatto_mitt->id)->first()->rag_soc;
-
+            config()->set('mail.host', Setting::smtp(0)['MAIL_HOST']);
+            config()->set('mail.port', Setting::smtp(0)['MAIL_PORT']);
+            config()->set('mail.encryption', Setting::smtp(0)['MAIL_ENCRYPTION']);
+            config()->set('mail.username', Setting::smtp(0)['MAIL_USERNAME']);
+            config()->set('mail.password', Setting::smtp(0)['MAIL_PASSWORD']);
             $ics_name = str_replace(" ","_",strtolower($mittente)).'_global.ics';
 
-            self::createICS($event, $ics_name);
-
-            //dd($filepath);
-            
-
-            
+            Event::createICS($event, $ics_name);
             $emails = explode(",",$request->emails);
             foreach($emails as $email){
 
@@ -480,6 +549,7 @@ $contents .= $singleEvent;
                     'luogo' => $event->location,
                     'mittente' => $mittente,
                     'email' =>  $email,
+                    'email_from' => $contatto_mitt->email,
                     'azienda' => $companyName,
                     "file" => storage_path('app/public/calendars/'.$ics_name),
                     "name" => $ics_name                    
@@ -489,7 +559,7 @@ $contents .= $singleEvent;
                 {
                     $message->to($data['email'])
                         ->subject('Nuovo evento '.config('app.name'))
-                        ->from(Setting::smtp(0)['MAIL_FROM_ADDRESS'])
+                        ->from($data['email_from'])
                         ->attach($data['file'], [
                             'as' => $data['name'],
                             'mime' => 'text/calendar',
@@ -504,26 +574,160 @@ $contents .= $singleEvent;
             foreach($request->users as $user_id)
             {
                 $calendar_id = User::find($user_id)->calendars()->first()->id;
-                $event = new Event;
-                    $event->starts_at = Carbon::createFromFormat('d/m/Y H:i', $request->from_date . ' ' . ($request->da_ora) .':'.$request->da_minuto)->format('Y-m-d H:i:s');
-                    $event->ends_at = Carbon::createFromFormat('d/m/Y H:i', $request->from_date . ' ' . ($request->a_ora) .':'.$request->a_minuto)->format('Y-m-d H:i:s');
-                    $event->title = $request->title;
-                    $event->summary = $request->summary;
-                    $event->location = $request->location;
-                    $event->user_id = $user_id;
-                    $event->calendar_id = $calendar_id;
-                $event->save();
+                $new_event = new Event;
+                $new_event->starts_at = Carbon::createFromFormat('d/m/Y H:i', $request->from_date . ' ' . ($request->da_ora) .':'.$request->da_minuto)->format('Y-m-d H:i:s');
+                $new_event->ends_at = Carbon::createFromFormat('d/m/Y H:i', $request->from_date . ' ' . ($request->a_ora) .':'.$request->a_minuto)->format('Y-m-d H:i:s');
+                $new_event->title = $request->title;
+                $new_event->summary = $request->summary;
+                $new_event->location = $request->location;
+                $new_event->user_id = $user_id;
+                $new_event->parent_event_id = $event->id;
+                $new_event->backgroundColor = '#FC8516';
+                $new_event->calendar_id = $calendar_id;
+                $new_event->save();
+                
+                Notification::create([
+                    'name' => $event->title,
+                    'body' => $event->summary,
+                    'notificationable_id' => $event->id,
+                    'notificationable_type' => get_class($event),
+                    'created_at' => $event->starts_at,
+                    'user_id' => $user_id
+                ]);
+                
+                if(isset($request->invioEmail)){
+
+                        config()->set('mail.host', Setting::smtp(0)['MAIL_HOST']);
+                        config()->set('mail.port', Setting::smtp(0)['MAIL_PORT']);
+                        config()->set('mail.encryption', Setting::smtp(0)['MAIL_ENCRYPTION']);
+                        config()->set('mail.username', Setting::smtp(0)['MAIL_USERNAME']);
+                        config()->set('mail.password', Setting::smtp(0)['MAIL_PASSWORD']);
+						
+						$ics_name = str_replace(" ","_",strtolower($mittente)).'_global.ics';
+						Event::createICS($event, $ics_name);
+
+                        $destinatario = User::where('id', $user_id)->first();
+                        $destinatario_fullname = $destinatario->getFullnameAttribute();
+                        $data = array(
+                            'mittente' => $mittente,
+                            'descrizione' => $event->title,
+                            "data" => $data_evento,
+                            'ora' => $ora_evento,
+                            'luogo' => $event->location,
+                            'destinatario' => $destinatario_fullname,
+                            'email' => $destinatario->email,
+                        	'email_from' => $contatto_mitt->email,
+                            'azienda' => $companyName,
+		                    "file" => storage_path('app/public/calendars/'.$ics_name),
+		                    "name" => $ics_name        
+                        );
+
+
+                        //DEFINISCO IL MAILER IN BASE ALLA CONFIGURAZIONE SMTP SCELTA
+                        Mail::send('areaseb::emails.events.new-event',$data, function ($message) use ($data)
+                        {
+                            $message->to($data['email'])
+                                ->subject('Nuovo evento '.config('app.name'))
+                                ->from($data['email_from'])
+                                ->attach($data['file'], [
+		                            'as' => $data['name'],
+		                            'mime' => 'text/calendar',
+		                        ]);
+                        });
+                }
 
                 if($request->company_id)
                 {
-                    $event->companies()->attach($request->company_id);
+                    $new_event->companies()->attach($request->company_id);
                 }
             }
+        }
+        
+        if($request->contact_id)
+        {
+                            
+            if(isset($request->invioEmail)){
+
+                config()->set('mail.host', Setting::smtp(0)['MAIL_HOST']);
+                config()->set('mail.port', Setting::smtp(0)['MAIL_PORT']);
+                config()->set('mail.encryption', Setting::smtp(0)['MAIL_ENCRYPTION']);
+                config()->set('mail.username', Setting::smtp(0)['MAIL_USERNAME']);
+                config()->set('mail.password', Setting::smtp(0)['MAIL_PASSWORD']);
+
+				$ics_name = str_replace(" ","_",strtolower($mittente)).'_global.ics';
+				Event::createICS($event, $ics_name);
+    
+                $destinatario = Contact::where('id', $request->contact_id)->first();
+                $destinatario_fullname = $destinatario->fullname;
+                $data = array(
+                    'mittente' => $mittente,
+                    'descrizione' => $event->title,
+                    "data" => $data_evento,
+                    'ora' => $ora_evento,
+                    'luogo' => $event->location,
+                    'destinatario' => $destinatario_fullname,
+                    'email' => $destinatario->email,
+                	'email_from' => $contatto_mitt->email,
+                    'azienda' => $companyName,
+                    "file" => storage_path('app/public/calendars/'.$ics_name),
+                    "name" => $ics_name         
+                );
+
+
+                //DEFINISCO IL MAILER IN BASE ALLA CONFIGURAZIONE SMTP SCELTA
+                Mail::send('areaseb::emails.events.new-event',$data, function ($message) use ($data)
+                {
+                    $message->to($data['email'])
+                        ->subject('Nuovo evento '.config('app.name'))
+                        ->from($data['email_from'])
+                        ->attach($data['file'], [
+                            'as' => $data['name'],
+                            'mime' => 'text/calendar',
+                        ]);
+                });
+            }
+
         }
 
         return back()->with('message', 'Evento Aggiunto');
     }
 
+	/**
+	 * Timeline Calendar: display calendar of available teachers
+	 */
+	// ->select('id', 'title', 'starts_at as start', 'ends_at as end', 'allday', 'backgroundColor', 'backgroundColor as borderColor', 'calendar_id as resourceId')
+	public function calendarTimelineEvent(Request $request) {
+		// Get current branch		
+		$branch_id = ContactBranch::where('contact_id', auth()->user()->contact->id)->pluck('branch_id');
 
+		// Get available teachers from current branch
+		$branch_contacts_ids = ContactBranch::where('branch_id', $branch_id)->pluck('id')->toArray();
+
+		$date_start = $request->start;
+		$date_end = $request->end;
+
+		$teachers_ids = Master::whereHas('availability', function($q) use($date_start, $date_end) {
+			$q->whereDate('data_start', '>=', $date_start)->whereDate('data_end', '<=', $date_end);
+		})->whereIn('contact_id', $branch_contacts_ids)->pluck('id')->toArray();
+
+		$query = Ora::whereIn('id_maestro', $teachers_ids)->whereDate('data', '>=', $date_start)->whereDate('data', '<=', $date_end)->get();
+		
+		/**
+		 * i maestri che devo vedere sono quelli che appartengono al centro di costo (la Sede) dell'utente loggato e li devo vedere solo se in quel giorno sono disponibili. Per la disponibilità trovi la tabella specifica Availabilities dove sono segnati i periodi di disponibilità del maestro nella sede specifica.
+		 */
+		$hours = [];
+
+		foreach($query as $q) {
+			$hours[] = [
+				'id' => $q->id,
+				'title' => $q->id,
+				'start' => $q->data . ' ' . $q->ora_in,
+				'end' => $q->data . ' ' . $q->ora_out,
+				'resourceId' => $q->id_maestro,
+			];
+		}
+		
+		return $hours;            
+	}
 
 }

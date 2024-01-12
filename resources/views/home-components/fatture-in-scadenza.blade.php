@@ -22,7 +22,18 @@ $totFatture = 0;
                     @endphp
                     <tr>
                         <td>{{$invoice->numero}}</td>
-                        <td>{{$invoice->company->rag_soc}}</td>
+                        @php
+                            $rag_soc = "";
+                            if($invoice->company != null)
+                                $rag_soc = $invoice->company->rag_soc;
+
+                            if($invoice->contact_id != null && $invoice->contact($invoice->contact_id) != null){
+                                $el = $invoice->contact($invoice->contact_id);
+                                $rag_soc = $el->nome.' '.$el->cognome;
+                            }
+
+                        @endphp
+                        <td>{{ $rag_soc }}</td>
                         <td>{{$invoice->data_scadenza->format('d/m/Y')}}</td>
                         <td>{{Areaseb\Core\Models\Primitive::NF($invoice->imponibile+$invoice->iva)}}</td>
                     </tr>
